@@ -27,6 +27,7 @@ sharing functional code examples.
   * [R](https://cran.r-project.org/)
   * [GNU make](https://www.gnu.org/software/make/)
   * [pandoc](https://pandoc.org/)
+  * [quarto](https://quarto.org/)
 
 The application note and supplemental file can be built by calling
 

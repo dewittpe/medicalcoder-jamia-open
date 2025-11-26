@@ -113,7 +113,8 @@ tab[, encid  := factor(encid, levels = rev(1:6))]
 tab[, poa    := factor(poa, c("0", "1", "v"), labels = c("poa = 0", "poa = 1", "poa.var = 'poa'"))]
 tab[, method := factor(method, c("charlson_quan2005", "elixhauser_ahrq2025", "pccc_v3.1"), c("Charlson\n(Quan 2005)", "Elixhauser\n(AHRQ 2025)", "PCCC\nv3.1"))]
 
-ggplot(tab) +
+g <-
+  ggplot(tab) +
   theme_bw() +
   aes(x = flag.method, y = encid, label = value) +
   geom_text(
@@ -132,7 +133,8 @@ ggplot(tab) +
     caption = "* Present on Admission\nC78.4 does not need to be POA to be flagged by Elixhauser\nI50.40 does need to be POA to be flagged by Elixhauser"
   )
 
-ggsave(filename = "flag-methods.svg", width = 9, height = 5)
+ggsave(plot = g, filename = "figure1.png", width = 9, height = 5)
+ggsave(plot = g, filename = "figure1.svg", width = 9, height = 5)
 
 ################################################################################
 #                                 End of File                                  #
