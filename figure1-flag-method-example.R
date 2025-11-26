@@ -136,6 +136,8 @@ g <-
 ggsave(plot = g, filename = "figure1.png", width = 8, height = 4.5)
 ggsave(plot = g, filename = "figure1.svg", width = 8, height = 4.5)
 
+save(record, args, file = "figure1.Rdata")
+
 ################################################################################
 #                                 End of File                                  #
 ################################################################################

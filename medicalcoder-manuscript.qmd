@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Tables:**]{.underline} / 2
 
-[**Figures:**]{.underline} 1 / 3
+[**Figures:**]{.underline} 3 / 3
 
 [**Supplementary material:**]{.underline}
 
@@ -101,22 +101,6 @@ diagnoses status, ICD version (9 or 10), ICD type (diagnostic or procedural),
 full and compact ICD code strings, and longitudinal data.
 <!-- word count 53 -->
 
-* ICD utilities
-  * `lookup_icd_codes()`
-  * `is_icd()`
-  * `get_icd_codes()`
-
-* Comorbidity Algorithms
-  * One function `comorbidities()`
-  * One data structure: long data - one ICD per row
-  * Handle ICD-9 and ICD-10 codes at the same time
-  * Handle full and compact ICD codes at the same time
-  * Consider present on admission
-  * Consider primary diagnoses
-  * Apply the comorbidity algorithms to
-    * current encounter
-    * cumulative (longitudinally)
-
 # Materials and Methods
 
 The medicalcoder R package has been developed to have minimal dependencies.
@@ -124,6 +108,7 @@ No namespaces are imported; R &geq; 3.5.0 is the only dependency due to a change
 in data serialization[^a].  There are seveal namespaces listed as suggested
 packages needed for building vignettes, testing, and building web-site only
 articles.
+<!-- word count 47 -->
 
 [^a]: https://cran.r-project.org/src/base/NEWS.3#:~:text=R%20has%20new,to%20version%203.5.0
 
@@ -171,17 +156,12 @@ Conditions (PCCC) [@feudtner2014pediatric;@feinstein2024pediatric], each with
 multiple variants, have been implemented in medicalcoder and are accessable via
 the `method` argument of `medicalcoder::comorbidities()`.
 
-medicalcoder was developed in R version 4.5.1.  The package has been tested
-with, and without, suggested packages, for all version of R &geq; 3.5.0[^b].
+medicalcoder was developed in R version 4.5.1.  A robust test suite runs as a
+GitHub action on R oldrelease, release, and devel.  The test suite also runs on
+depmand on all released versions of R &geq; 3.5.0 without suggested packages,
+and all version &geq; 4.4.0 with suggested packages[^b].
 
 [^b]: https://github.com/dewittpe/medicalcoder/tree/main/testing
-
-
-
-`medicalcoder::comorbidities()` can apply the comorbidity algorithms over
-longitudinal data to flag conditions as they arise over multiple encounters
-within a patient record.
-
 
 # Results {#sec-results}
 
@@ -195,7 +175,8 @@ End users can access the full internal ICD data base as a data.frame via
 `medicalcoder::get_icd_codes()`.  Additional details, such as year and source
 specific descriptions and the hierarchical structure of the ICD
 codes, are returned when the arguments `with.descriptions = TRUE` and/or
-`with.hierarchy = TRUE` are passed to `medicalcoder::get_icd_codes()`.
+`with.hierarchy = TRUE` are passed to `medicalcoder::get_icd_codes()`
+(Additional detail in Supplement XXX).
 
 ```{r}
 #| label: get-icd-codes
@@ -452,7 +433,8 @@ Comorbidity methods implemented in medicalcoder.
 ```{r}
 #| label: flag-method-example
 #| include: false
-source("flag-method-example.R")
+# this will load the object record and args into the .Globalenv
+load("figure1.Rdata")
 ```
 
 The the combination of `poa.var` or `poa` and `flag.method` impact when a
@@ -488,21 +470,19 @@ medicalcoder::comorbidities(
 
 The utility of the longitudinal methods in medicalcoder are critical in the
 assessment of PCCC v3 [@feinstein2024pediatric] conditions.  For these
-conditions, some ICD codes are classified technology
-dependent codes.  If a technology dependent code for a condition is in the
-patient record, it only flags the condition if a non-technology code is also
-present.
-For example, consider
-* H49.811: metabolic (other metabolic disorders),
-* J84.111: respiratory (chronic respiratory diseases), and
-* Z96.41:  metabolic (device and technology use).
-
-We'll apply the `pccc_v3.1` to this code set with `flag.method = "cumulative"`
-and all codes considered to be present-on-admission.  Figure 2 illustrates when
-the conditions are flagged.  For permutations 1, 2, and 3, where the
-non-technology-dependent code for a metabolic condition appears in the record
-before the technology-dependent metabolic code, the flags appear as intuitively
-expected, metabolic flags as soon as the non-technology-dependent code appears.
+conditions, some ICD codes are classified technology dependent codes.  If a
+technology dependent code for a condition is in the patient record, it only
+flags the condition if a non-technology code is also present. For example,
+consider the following three ICD-10 codes: H49.811 (non-technology-dependent
+metabolic), J84.111 (non-technology-dependent respiratory), and Z96.41
+(technology-dependent metabolic).  For a patient with seven encounters, and one
+code presented on ecnounter 2, one on encounter 4, and one on encounter 6, we
+will apply `method = "pccc_v3.1"` with `flag.method = "cumulative"` and codes
+considered to be present-on-admission.  Figure 2 illustrates when the conditions
+are flagged.  For permutations 1, 2, and 3, where the non-technology-dependent
+code for a metabolic condition appears in the record before the
+technology-dependent metabolic code, the flags appear as intuitively expected,
+metabolic flags as soon as the non-technology-dependent code appears.
 Permutations 4, 5, and 6 are more interesting as the technology-dependent
 metabolic code appears before the non-technology-dependent code.  Because the
 longitudinal methods in `medicalcoder::comorbidities()` track all ICD codes from
@@ -511,6 +491,7 @@ permutations 4 and 6 due to the respiratory non-technology-dependent code
 existing.  Flagging conditions on a ecnounter only level and aggregating the
 results would result in missing metabolic on encounters 4 and 5 in permutations
 4 and 6.
+<!-- 231 words -->
 
 ## Benchmarking
 
@@ -519,7 +500,7 @@ work with base R.  That said, if the input to the `data` arguement of
 `medicalcoder::comorbidities()` is a data.table and the data.table namespace is
 available, the gaurded S3 method dispacting will exploit the data.table
 efficientcys for merge, setting, and subsetting compaired to base R data.frame.
-Figure 2 shows the average time, relative time (versus data.frame), and the
+Figure 3 shows the average time, relative time (versus data.frame), and the
 amount of RAM used for datasets of different sizes and several comorbidity
 algorithms.  In general, `medicalcoder::comorbidities()` will return the condition/comorbidity
 flags for 100,000 encounters in less than 10 seconds when `flag.method =
@@ -615,7 +596,7 @@ without the presence of other codes (PCCC v3).
 
 ## Conclusions
 
-{medicalcoder} is a fully-self contained R package able to efficienty apply many
+medicalcoder is a fully-self contained R package able to efficienty apply many
 comorbidity algorithms to a dataset while accounting for ICD-version, ICD-type,
 present-on-admission, primary diagnostic, full and compact ICD codes.  Flagging
 codes can be done for individual patient/encounters, or longitudinally within a
@@ -686,3 +667,14 @@ non-technology-dependennt code is in the record no condition is flagged on
 encounter 2 or 3.  On encounter 4 when J84.111 is reported, then both metabolic
 and respiratory conditions are flagged as a non-technology-dependennt code
 exists in the record.
+
+Figure 3: Benchmarking statistics for the medicalcoder package.  Comorbidity
+algorithms Charlson [@quan2005], Elixhauser [@quan2005], and Pediatric Complex
+Chronic Conditions v2 [@feinstein2024pediatric] were applied to simulated data
+sets.  The benchmarking was performed on a computational server.  All processes,
+including the data.table ones, were limited to a single thread.  General
+performance between base-R data.frames and tidyverse tibbles are the same wereas
+notable time and memory use reductions are seen for data.tables.  While
+medicalcoder does not import any namespaces, it does use guarded S3 method
+dispatching when data.tables are present to achieve the performance gains.
+
