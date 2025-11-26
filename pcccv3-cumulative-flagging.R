@@ -44,22 +44,24 @@ rtn_long <-
   )
 rtn_long[, encounter_id := factor(encounter_id, rev(sort(unique(encounter_id))))]
 
-rtn_long[value == 1 & variable != "num_cmrb", faicon := emojifont::fontawesome("fa-flag")]
+rtn_long[value == 1 & variable != "num_cmrb", faicon := factor(value, 0:1, c("Not Flagged", "Flagged"))]
 rtn_long[, hicon := ""]
 rtn_long[value == 0 & variable == "num_cmrb", hicon := "0"]
 rtn_long[value == 1 & variable == "num_cmrb", hicon := "1"]
 rtn_long[value == 2 & variable == "num_cmrb", hicon := "2"]
 
+rtn_long[, cmrb := fcase(startsWith(as.character(variable), "metabolic"), "metabolic",
+                         startsWith(as.character(variable), "respiratory"), "respiratory",
+                         default = "")]
+
 g <-
   ggplot2::ggplot(data = rtn_long) +
   ggplot2::aes(x = variable, y = encounter_id) +
-  ggplot2::geom_point(alpha = 0) +
-  ggplot2::geom_text(
-    data = subset(rtn_long, !is.na(faicon)),
-    family = "fontawesome-webfont",
-    mapping = ggplot2::aes(label = faicon),
-    size = 4
+  ggplot2::geom_point(
+    mapping = ggplot2::aes(shape = faicon),
+    size = 2
   ) +
+  scale_shape_manual(values = c("Not Flagged" = NULL, "Flagged" = 13)) +
   ggplot2::geom_text(
     data = subset(rtn_long, is.na(faicon)),
     mapping = ggplot2::aes(label = hicon),
@@ -68,7 +70,7 @@ g <-
   ggplot2::facet_wrap( ~ plabel) +
   ggplot2::ylab("Encounter") +
   ggplot2::theme(
-    legend.position = "bottom",
+    legend.position = "none",
     axis.text.x = ggplot2::element_text(angle = 70, hjust = 1),
     axis.title.x = ggplot2::element_blank()
   )

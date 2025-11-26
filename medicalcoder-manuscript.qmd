@@ -672,4 +672,17 @@ reported previously, hence the flagging of both conditons on encounter 4 under
 all comorbidity agorithems under `flag.method = 'cumulative'` as the codes from
 encounters 2 and 3 are considered in the history for encounter 4.
 
-Figure 2: caption.....
+Figure 2: Flagging of metabolic and respiratory conditiions via the Pediatrics
+Complex Chronic Conditions v3 [@feinstein2024pediatric] for an example patient
+with ICD-10 codes: H49.811 (non-technology-dependent metabolic), J84.111
+(non-technology-dependent respiratory), and Z96.41 (technology-dependennt
+metabolic).  One code appears on encounter 2, 4, and 6.  PCCC v3 only flags a
+condition based on a technology-dependennt code if at least one non-technology
+dependennt code also exits.  Permutations 1, 2, 3 easily flag the metabolic
+condition because the H49.811 appears before Z96.41 in the record.  Permutations
+4, 5, 6 do not flag metabolic until a non-technology dependennt code is in the
+record, e.g., in permutation 6, Z96.41 appears on encounter 2. Since no
+non-technology-dependennt code is in the record no condition is flagged on
+encounter 2 or 3.  On encounter 4 when J84.111 is reported, then both metabolic
+and respiratory conditions are flagged as a non-technology-dependennt code
+exists in the record.

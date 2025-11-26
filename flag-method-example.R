@@ -9,7 +9,6 @@ library(data.table)
 library(medicalcoder)
 library(ggplot2)
 library(ggh4x)
-library(emojifont)
 
 # assume we have a patient record for six encounters.  We use ICD-10 diagnostic
 # codes C78.4 and I50.40 which maps to a cancer and heart failure
@@ -106,7 +105,7 @@ tab <-
     variable.factor = FALSE
   )
 
-tab[, value := fifelse(value == 1, fontawesome("fa-flag"), NA)]
+tab[, value := factor(value, 0:1, c("Not Flagged", "Flagged"))]
 tab[, flag.method := factor(flag.method, c("current", "cumulative"))]
 
 tab[, encid  := factor(encid, levels = rev(1:6))]
@@ -116,25 +115,26 @@ tab[, method := factor(method, c("charlson_quan2005", "elixhauser_ahrq2025", "pc
 g <-
   ggplot(tab) +
   theme_bw() +
-  aes(x = flag.method, y = encid, label = value) +
-  geom_text(
-    family = "fontawesome-webfont",
-    size = 4
-    ) +
+  aes(x = flag.method, y = encid) +
+  geom_point(mapping = aes(shape = value), size = 2) +
+  scale_shape_manual(values = c("Not Flagged" = NULL, "Flagged" = 13)) +
   geom_text(
     data  = tab[, unique(.SD), .SDcols = c("encid", "codes")],
     mapping = aes(x = 1.5, y = encid, label = codes),
     size = 2
-    ) +
+  ) +
   facet_nested(method ~ poa + variable) +
   ylab("Encounter") +
   xlab("Flag Method") +
   labs(
     caption = "* Present on Admission\nC78.4 does not need to be POA to be flagged by Elixhauser\nI50.40 does need to be POA to be flagged by Elixhauser"
+  ) +
+  theme(
+    legend.position = "none"
   )
 
-ggsave(plot = g, filename = "figure1.png", width = 9, height = 5)
-ggsave(plot = g, filename = "figure1.svg", width = 9, height = 5)
+ggsave(plot = g, filename = "figure1.png", width = 8, height = 4.5)
+ggsave(plot = g, filename = "figure1.svg", width = 8, height = 4.5)
 
 ################################################################################
 #                                 End of File                                  #
