@@ -206,8 +206,7 @@ End users can access the full internal ICD data base as a data.frame via
 `medicalcoder::get_icd_codes()`.  Additional details, such as year and source
 specific descriptions and the hierarchical structure of the ICD
 codes, are returned when the arguments `with.descriptions = TRUE` and/or
-`with.hierarchy = TRUE` are passed to `medicalcoder::get_icd_codes()`
-(Additional detail in Supplement XXX).
+`with.hierarchy = TRUE` are passed to `medicalcoder::get_icd_codes()`.
 
 ```{r}
 #| label: get-icd-codes
@@ -234,100 +233,25 @@ To test if a ICD code string is a known ICD code
 string is a known ICD code while accounting for ICD verions, type, src, and
 year.  Optionally, header codes can be consider valid or invalid, and if the
 code was ever assignable.  Both full and compact codes can be considered
-simultaneously, and warnings for abiguous codes are optionally thrown
-(See Supplement XXX).
+simultaneously, and warnings for abiguous codes are optionally thrown.
 
-```{r}
-#| include = FALSE
-# MOVE THIS TO SUPPLEMENT
-medicalcoder::is_icd(c("D71", "D71.1"))
-
-medicalcoder::is_icd(c("D71", "D71.1"), src = "cms")
-medicalcoder::is_icd(c("D71", "D71.1"), src = "cms", year = 2026)
-medicalcoder::is_icd(c("D71", "D71.1"), src = "cms", ever.assignable = TRUE)
-medicalcoder::is_icd(c("D71", "D71.1"), src = "cms", headerok = TRUE, ever.assignable = TRUE)
-
-medicalcoder::is_icd(c("D71", "D71.1"), src = "who")
-medicalcoder::is_icd(c("D71", "D71.1"), src = "who", ever.assignable = TRUE)
-
-medicalcoder::lookup_icd_codes(c("D71", "D71.1"))
-```
-
-A bridge between the ICD utilities and comorbidity methods are the functions
-`medicalcoder::get_charlson_codes()`,
-`medicalcoder::get_elixhause_codes()`, and
-`medicalcoder::get_pccc_codes()`.  All of these return data.frames with the ICD
-codes and the conditions/comorbidities the ICD code maps to under each variant
-of the primary comorbidity algorithm.
+Extensive examples and detail explainations of the return from
+`medicalcoder::get_icd_codes()`, `medicalcoder::is_icd()` and two more ICD
+utilies, `medicalcoder::lookup_icd_codes()` and
+`medicalcoder::icd_compact_to_full()` are provided in one of the pacakge
+vignettes: `vignettes(topic = "icd", package = "medicalcoder")`.
 
 ## Comorbidities
 
-A single function call, `medicalcoder::comorbidities()` is the interface for
-applying any of the comorbidity algorithms to a dataset. The input data is
+A single function call, `medicalcoder::comorbidities()`, is the interface for
+applying any of `r length(medicalcoder:::comorbidities_methods())` comorbidity
+algorithms, Table @tbl-comorbidities-methods, to a dataset. The input data is
 expected to be in a long format, one ICD code per row, with optional columns for
 identification variables (e.g., patient and encounter ids), ICD version (integer
 value 9 or 10), ICD type (1 for diagnostic code, 0 for procedure code),
 present-on-admission (POA) indicator, and primary diagnostic indicator.  The ICD
 codes can be full, compact, or a combination thereof.  A singel patient/encouner
 record can consist of ICD-9, ICD-10, or both.
-
-medicalcoder provides two example data sets. `mdcr` is a data.frame with 4
-columns: patient identifier (patid), ICD version (icdv), compact ICD code string
-(code), and an indicator for diagnostic or procedure code (dx).
-A second dataset, `mdcr_longitudinal` provides an example dataset for exploring
-comorbidities over time within a patient record.
-
-A verbose example of calling `medicalcoder::comorbidities()`, including default values is:
-```{r}
-#| label: comorbidities-example-1
-data(mdcr, package = "medicalcoder") # load data
-elixhauser_quan2005_comorbidities <-
-  medicalcoder::comorbidities(
-    data          = mdcr, # a data.frame
-    icd.codes     = "code", # name of column in data with ICD code strings
-    method        = "elixhauser_quan2005", # name of <method>_<variant> to apply
-    id.vars       = "patid", # (optional) id variables within data
-    icdv.var      = "icdv",  # (optional) variable denoting ICD version
-    icdv          = NULL, # (default)
-    dx.var        = "dx", # (optional) variable denoting diagnostic (1) or procedure (0) code
-    dx            = NULL, # (default)
-    poa.var       = NULL, # (default)
-    poa           = 1L,   # Consider all codes to be present-on-admission
-    age.var       = NULL, # (default) only relevent to charlson_<variant>
-    primarydx.var = NULL, # (default)
-    primarydx     = 0L,   # Condiser all codes to be secondary diagnoses
-    flag.method   = "current",  # (default), other option "cumulative"
-    full.codes    = TRUE, # (default) Reference data[[icd.codes]] against full ICD codes in lookup tables
-    compact.codes = TRUE, # (default) Reference data[[icd.codes]] against compact ICD codes in lookup tables
-    subconditions = FALSE # (default) only relevent to pccc_<variant>
-  )
-```
-
-Note that several arguements come in pairs, e.g., `icdv.var` and `icdv`.  The
-version with the `.var` suffix will take precedence over the other if both are
-defined.  The version without the `.var` suffix is provided as a simple way to
-say the whole input data set has a particular property.  If both the versions
-are left as the defaul NULL value, then that property will be ignored in the
-lookup tables.  That is, if `icdv.var` and `icdv` are both NULL, then
-`data[[icd.codes]]` will be compared to both ICD-9 and ICD-10 codes.  If
-`icdv.var` is NULL and `icdv = 9L` then `data[[icd.codes]]` will only be
-compared to ICD-9 codes in the lookup tables.
-
-```{r}
-str(elixhauser_quan2005_comorbidities, max.level = 0L)
-```
-
-The return from `medicalcoder::comorbidities()` is a data.frame with additional
-metadata.  The data.frame has column(s) for the `id.vars` and an indicator
-column each of the relevent comorbidities.  All returned data.frames include
-columns `num_cmrb` for the number of comorbidities flaged for the `id.vars` and
-`cmrb_flag`, an indicator column for the presence/absence of at least one
-comorbidity.
-
-`medicalcoder::comorbidities()` (as of version
-`r packageVersion("medicalcoder")`) has implimentated
-`r length(medicalcoder:::comorbidities_methods())` comorbidity methods, Table
-@tbl-comorbidities-methods.
 
 ::: {#tbl-comorbidities-methods}
 
@@ -398,12 +322,56 @@ Comorbidity methods implemented in medicalcoder.
 
 :::
 
+A verbose example of calling `medicalcoder::comorbidities()`, including default
+values, follows.  The example uses one of two example data sets provided by the
+package. `mdcr` is a data.frame with 4 columns: patient identifier (patid), ICD
+version (icdv), compact ICD code string (code), and an indicator for diagnostic
+or procedure code (dx).
+
 ```{r}
-#| label: flag-method-example
-#| include: false
-# this will load the object record and args into the .Globalenv
-load("figure1.Rdata")
+#| label: comorbidities-example-1
+data(mdcr, package = "medicalcoder") # load data
+elixhauser_quan2005_comorbidities <-
+  medicalcoder::comorbidities(
+    data          = mdcr, # a data.frame
+    icd.codes     = "code", # name of column in data with ICD code strings
+    method        = "elixhauser_quan2005", # name of <method>_<variant> to apply
+    id.vars       = "patid", # (optional) id variables within data
+    icdv.var      = "icdv",  # (optional) variable denoting ICD version
+    icdv          = NULL, # (default)
+    dx.var        = "dx", # (optional) variable denoting diagnostic (1) or procedure (0) code
+    dx            = NULL, # (default)
+    poa.var       = NULL, # (default)
+    poa           = 1L,   # Consider all codes to be present-on-admission
+    age.var       = NULL, # (default) only relevent to charlson_<variant>
+    primarydx.var = NULL, # (default)
+    primarydx     = 0L,   # Condiser all codes to be secondary diagnoses
+    flag.method   = "current",  # (default), other option "cumulative"
+    full.codes    = TRUE, # (default) Reference data[[icd.codes]] against full ICD codes in lookup tables
+    compact.codes = TRUE, # (default) Reference data[[icd.codes]] against compact ICD codes in lookup tables
+    subconditions = FALSE # (default) only relevent to pccc_<variant>
+  )
 ```
+
+Note that several arguements come in pairs, e.g., `icdv.var` and `icdv`.  The
+version with the `.var` suffix will take precedence over the other if both are
+defined.  The version without the `.var` suffix is provided as a simple way to
+say the whole input data set has a particular property.  If both the versions
+are left as the defaul NULL value, then that property will be ignored in the
+lookup tables.  That is, if `icdv.var` and `icdv` are both NULL, then
+`data[[icd.codes]]` will be compared to both ICD-9 and ICD-10 codes.  If
+`icdv.var` is NULL and `icdv = 9L` then `data[[icd.codes]]` will only be
+compared to ICD-9 codes in the lookup tables.
+
+```{r}
+str(elixhauser_quan2005_comorbidities, max.level = 0L)
+```
+
+The return from `medicalcoder::comorbidities()` is a data.frame with additional
+metadata.  The data.frame has column(s) for the `id.vars` and an indicator
+column each of the relevent comorbidities.  All returned data.frames include
+columns `num_cmrb` for the number of comorbidities flaged for the `id.vars` and
+`cmrb_flag`, an indicator column for at least one comorbidity.
 
 The combination of `poa.var` or `poa` and `flag.method` impact when a
 condition/comorbidity is flag, Figure 1. For the
@@ -413,14 +381,20 @@ codes C78.4 (mapping to cancer in Charlson, Elixhauser, and PCCC), and I50.40
 encounters 2, 3, and 5.  The POA status of the codes are dyanmic as well.
 
 ```{r}
+#| label: flag-method-example
+#| include: false
+# this will load the object record and args into the .Globalenv
+load("figure1.Rdata")
+```
+
+```{r}
 #| label: example-record
 record
 ```
 
 The following call is an example of for the `r nrow(args)`  calls needed to
-generate the flags shown in Figure 1.  See Supplementary material for the
-specific code to reproduce the graphic.  The most important detail to take away
-is that the `id.vars` have the name of the sortable encounter id listed last.
+generate the flags shown in Figure 1. The most important detail to take away is
+that the `id.vars` have the name of the sortable encounter id listed last.
 
 ```{r}
 #| label: example-call-for-flag-example
@@ -462,20 +436,32 @@ existing.  Flagging conditions on a ecnounter only level and aggregating the
 results would result in missing metabolic on encounters 4 and 5 in permutations
 4 and 6.
 
+## Testing
+Within the test suite within medicalcoder, there are tests for ensuring
+consistincy between `method = "pccc_v2.0"` and the R package pccc[@r-pccc].  A
+sequence of tests have been built to ensure consistincy between
+`method = elixhauser_ahrq20XX` and the published SAS code from AHRQ[@ahrq2025].
+Currently, medicalcoder has more than 95% code coverage via testing.
+
+Additionally, as part of the website[^d] build, a test for consistincy between
+`method = charlson_quan2005` and the SQL code provided by
+MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is done.
+
+[^d]: https://www.peteredewitt.com/medicalcoder/articles/medicalcoder-vs-mimic.html
+
 ## Benchmarking
 
-There are two benchmarks we consider. First, medicalcoder has been designed to
-work with base R.  That said, if the input to the `data` arguement of
-`medicalcoder::comorbidities()` is a data.table and the data.table namespace is
-available, the gaurded S3 method dispacting will exploit the data.table
-efficientcys for merge, setting, and subsetting compaired to base R data.frame.
-Figure 3 shows the average time, relative time (versus data.frame), and the
-amount of RAM used for datasets of different sizes and several comorbidity
-algorithms.  In general, `medicalcoder::comorbidities()` can return the condition/comorbidity
-flags for 100,000 encounters in less than 10 seconds when `flag.method =
-"current"`.  Using a data.table can take less than 50% the time compared to a
-data.frame.  Extensive details on the the benmarking and code to reproduce the
-graphic are on GitHub[^c].
+medicalcoder has been designed to work with just base R.  That said, if the
+input to the `data` arguement of `medicalcoder::comorbidities()` is a data.table
+[@r-data.table] and the data.table namespace is available, gaurded S3 method
+dispacting will exploit the data.table efficiences for merge, setting, and
+subsetting. Figure 3 shows the average time, relative time (versus data.frame),
+and the amount of RAM used for datasets of different sizes and several
+comorbidity algorithms.  In general, `medicalcoder::comorbidities()` can process
+100,000 encounters in less than 10 seconds when `flag.method = "current"`. Using
+a data.table can take less than 50% the time compared to a data.frame. Extensive
+details on the the benmarking and code to reproduce the graphic are on
+GitHub[^c].
 
 [^c]: https://github.com/dewittpe/medicalcoder/tree/main/benchmarking
 
@@ -590,9 +576,8 @@ and interpretation and provided important feedback. TDB provided funding. All
 authors critically reviewed the manuscript for important intellectual content
 and approved of the final version of the manuscript.
 
-<!--
-[**Acknowledgments:**]{.underline}
--->
+[**Acknowledgments:**]{.underline} We thank Vincent Rubinetti for his assistance
+in designing the hex-sticker logo for medicalcoder.
 
 {{< pagebreak >}}
 

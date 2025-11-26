@@ -369,35 +369,38 @@ deltas <-
   )
 setDT(deltas)
 
-
-missingcodes <-
+missing_rheum_codes <-
   merge(
     x = subset(mdcr, patid %in% deltas[rhd != charlson_rheum, patid]),
     y = subset(medicalcoder::get_charlson_codes(), charlson_quan2005 == 1L),
     by = c("code", "icdv", "dx")
   )
-missingcodes <- subset(missingcodes, condition == "rhd")
-missingcodes <- unique(missingcodes[, c("icdv", "dx", "code", "full_code")])
-setDT(missingcodes)
-missingcodes[, codeid := 1:.N]
+missing_rheum_codes <- subset(missing_rheum_codes, condition == "rhd")
+missing_rheum_codes <- unique(missing_rheum_codes[, c("icdv", "dx", "code", "full_code")])
+setDT(missing_rheum_codes)
+missing_rheum_codes[, codeid := 1:.N]
 
-medicalcoder::comorbidities(
-  data = missingcodes,
-  id.vars = "codeid",
-  icd.codes = "code",
-  icdv.var = "icdv",
-  dx.var = "dx",
-  method = "charlson_quan2005",
-  poa = 1L,
-  primarydx = 0L
-)$rhd
+stopifnot(all(
+  medicalcoder::comorbidities(
+    data = missing_rheum_codes,
+    id.vars = "codeid",
+    icd.codes = "code",
+    icdv.var = "icdv",
+    dx.var = "dx",
+    method = "charlson_quan2005",
+    poa = 1L,
+    primarydx = 0L
+  )$rhd == 1
+))
 
-multimorbidity::charlson(
-  dat = missingcodes,
-  id = codeid,
-  version = 19,
-  version_var = icdv
-)$charlson_rheum
+stopifnot(all(
+  multimorbidity::charlson(
+    dat = missing_rheum_codes,
+    id = codeid,
+    version = 19,
+    version_var = icdv
+  )$charlson_rheum == 0
+))
 
 ################################################################################
 # save
@@ -409,6 +412,7 @@ save(
   comorbidity_elixhauser_results,
   icdcomorbid_icd9_results,
   multimorbidity_charlson_results,
+  missing_rheum_codes,
   file = "medicalcoder-vs.Rdata"
 )
 
