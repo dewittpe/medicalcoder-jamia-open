@@ -7,9 +7,12 @@ RDATA   := figure1.Rdata medicalcoder-vs.Rdata
 
 .PHONY: all
 
-all: medicalcoder-manuscript.docx
+all: medicalcoder-manuscript.docx supplement.pdf
 
 medicalcoder-manuscript.docx: medicalcoder-manuscript.qmd template.docx references.bib $(RDATA) $(FIGURES)
+	$(QUARTO) render $<
+
+supplement.pdf: supplement.qmd
 	$(QUARTO) render $<
 
 medicalcoder-vs.Rdata: medicalcoder-vs-other-r-packages.R
