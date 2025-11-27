@@ -100,22 +100,22 @@ applying comorbidity algorithms to modern longitudinal clinical datasets.
 
 ::: {.callout-tip icon="false"}
 ## Lay Summary
-<!-- word count: 183 / 200 -->
+<!-- word count: 187 / 200 -->
 
-Researchers often use diagnosis and procedure codes—known as ICD codes—to
-identify health conditions in large medical datasets. Comorbidity algorithms
-group these codes into meaningful categories, such as heart disease or cancer,
-and are essential for understanding patient complexity, comparing outcomes, and
-adjusting for risk. However, existing tools usually handle only one or two
-algorithms, work with either ICD-9 or ICD-10 (but not both together), and do not
-track health conditions across multiple hospital visits. This can lead to missed
-or inconsistent results.
+Researchers often use International Classification of Diseases (ICD) diagnosis
+and procedure codes to identify health conditions in large medical datasets.
+Comorbidity algorithms group these codes into meaningful categories, such as
+heart disease or cancer, and are essential for understanding patient complexity,
+comparing outcomes, and adjusting for risk. However, existing tools usually
+handle only one or two algorithms, work with either ICD-9 or ICD-10 (but not
+both together), and do not track health conditions across multiple hospital
+visits. This can lead to missed or inconsistent results.
 
 We created medicalcoder, an R package that solves these problems. It includes a
 complete database of ICD-9 and ICD-10 codes and provides a single, easy-to-use
 function to apply many comorbidity algorithms. The package can recognize both
-full and shortened ICD codes, use present-on-admission flags, identify primary
-diagnoses, and—importantly—follow patients across multiple encounters to avoid
+full and compact ICD codes, use present-on-admission flags, identify primary
+diagnoses, and follow patients across multiple encounters to avoid
 missing conditions that appear earlier in their history.
 
 medicalcoder is fast, works with base R, and has been thoroughly tested against
