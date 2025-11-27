@@ -46,7 +46,8 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} / 2000 (excluding tables)
+[**Word count:**]{.underline} 1764 / 2000 (excluding tables and R code chunks),
+2088 (including R chuncks, excluding tables)
 
 [**Tables:**]{.underline} 1 / 2
 
