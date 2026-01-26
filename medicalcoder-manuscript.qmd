@@ -76,20 +76,36 @@ status, primary diagnoses, and longitudinal patient histories.
 
 **Materials and Methods**
 
+```{r}
+#| label: import-benchmark-results
+#| include: false
+mimicivbenchmark <- readRDS("benchmark.rds")
+data.table::setDT(mimicivbenchmark)
+best_case_benchmark <-
+  mimicivbenchmark[
+    subjects == 1e6 &
+      encounters == max(encounters) &
+      data_class == "data.table",
+    min(time_smooth),
+    keyby = .(data_class, subjects, encounters)
+    ]
+```
+
 We created medicalcoder, an R package containing a comprehensive ICD-9 and
 ICD-10 diagnostic and procedure code database and implementations of
 `r length(medicalcoder:::comorbidities_methods())` variants of the Charlson,
-Elixhauser, and Pediatric Complex Chronic Conditions (PCCC) algorithms. The
-package uses a single function interface, supports full and compact ICD formats,
-and offers both encounter-level and cumulative longitudinal flagging. Extensive
-testing ensures consistency with published SAS, SQL, and R reference
-implementations.
+Elixhauser, and Pediatric Complex Chronic Conditions (PCCC) algorithms.
+A single function, `medicalcoder::comorbidities()`, is used to apply the
+comorbidities methods with suppport for both encounter-level and cumulative
+longitudinal flagging of comorbidities. Extensive testing ensures consistency
+with published SAS, SQL, and R reference implementations.
 
 **Results**
 
-medicalcoder accurately applies all included algorithms across mixed-version
-datasets and efficiently processes large inputs. Benchmarking demonstrates
-substantial speed improvements.
+medicalcoder accurately applies all included algorithms across mixed ICD-version
+datasets and efficiently processes large inputs.  1 million subjects with a
+total of more than 2.7 million encounters, can be processed in less than 30
+seconds.
 
 **Conclusions**
 
@@ -100,7 +116,7 @@ applying comorbidity algorithms to modern longitudinal clinical datasets.
 
 ::: {.callout-tip icon="false"}
 ## Lay Summary
-<!-- word count: 187 / 200 -->
+Word count: XXX / 200
 
 Researchers often use International Classification of Diseases (ICD) diagnosis
 and procedure codes to identify health conditions in large medical datasets.
@@ -130,28 +146,28 @@ studies using electronic health record or administrative data.
 # Background and Significance
 
 Accurate identification of clinical conditions in large healthcare datasets
-depends  on International Classification of Diseases (ICD) codes. Comorbidity
-algorithms built on these codes are central to risk adjustment, cohort
-characterization, and the reproducible study of patient populations.
+depends  on International Classification of Diseases (ICD)
+codes [quan2005;quan2011;@feinstein2024pediatric;@feudtner2014pediatric;@ahrq2025].
+Comorbidity algorithms built on these codes are central to risk adjustment,
+cohort characterization, and the reproducible study of patient populations
+[@quan2005;@yurkovich2015systematic;@guo2022evaluation;@li2008risk].
 
 Existing software packages and utilities typically
 implement only one or two comorbidity algorithms, usually
 variants of the Charlson and Elixhauser, and support applying either ICD-9 or
-ICD-10
-[@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity]
-leaving the
-end user to reconcile mixed-version datasets manually.
-Input requirements vary across utilities making it difficult to apply multiple
+ICD-10 [@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity]
+leaving the end user to reconcile mixed ICD-version datasets manually. Input
+requirements vary across utilities making it difficult to apply multiple
 comorbidity algorithms consistently.
 
 To our knowledge, no current implementation accounts for longitudinal
 data.  While the AHRQ [@ahrq2025] Elixhauser variant accounts for
 present-on-admission (POA) indicators and exemptions, it does not propagate
-conditions across encounters within a patient record.
-
-For example, a patient who develops heart failure (HF)
-during an encounter should have HF flagged on subsequent encounters regardless
-of POA indicators.  Encounter-level flagging alone cannot capture this.
+conditions across encounters within a patient record.  Thus, conditions which
+arise during acute care which should should not be considered comorbidities for
+the present encounter are accounted for via POA indicators.  However, unless the
+relevant ICD codes are flagged as POA on subsequent encounters, the arisen
+comorbidities will not be flagged.
 
 There is a need for a tool which can apply multiple comorbidity algorithms to a
 data set through a unified API while accounting for the nuances of each
