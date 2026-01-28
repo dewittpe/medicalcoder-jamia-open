@@ -437,6 +437,12 @@ medicalcoder::comorbidities(
 )
 ```
 
+```{r}
+#| label: load-figure2permutations
+#| include: false
+figure2permutations <- readRDS("figure2permutations.rds")
+```
+
 The longitudinal methods in medicalcoder are critical for PCCC v3
 [@feinstein2024pediatric]. For these conditions, some ICD codes are classified
 as technology dependent. A technology-dependent code flags a condition only if
@@ -445,10 +451,11 @@ consider three ICD-10 codes: H49.811 (non-technology-dependent metabolic),
 J84.111 (non-technology-dependent respiratory), and Z96.41
 (technology-dependent metabolic). For a patient with seven encounters and one
 code reported on encounters 2, 4, and 6, we apply `method = "pccc_v3.1"` with
-`flag.method = "cumulative"` and codes treated as POA. Figure 2 illustrates
-when conditions are flagged for each permutation. For permutations 1, 2, and 3,
-the non-technology-dependent metabolic code appears before the
-technology-dependent metabolic code, so the metabolic condition flags
+`flag.method = "cumulative"` and codes treated as POA for all six permutations 
+`r sprintf("(%s).", paste(sort(unique(figure2permutations$plabel)), collapse = "; "))`
+Figure 2 illustrates when conditions are flagged for each permutation. For
+permutations 1, 2, and 3, the non-technology-dependent metabolic code appears
+before the technology-dependent metabolic code, so the metabolic condition flags
 immediately after H49.811 appears. Permutations 4, 5, and 6 are more interesting
 because Z96.41 appears first. Because `medicalcoder::comorbidities()` tracks all
 ICD codes from prior encounters, the metabolic technology-dependent-only flag
@@ -647,9 +654,9 @@ exists in the record.
 v3.1 [@feinstein2024pediatric] were applied to simulated datasets using both
 `current` and `cumulative` flag methods and three input data classes
 (data.frame, tibble, data.table). The benchmarking was performed on a
-computational server with all processes limited to a single thread. Performance
-is similar between base R data.frames and tidyverse tibbles, whereas notable
-time and memory reductions are seen for data.tables. While medicalcoder does not
-import any namespaces, it uses guarded S3 method dispatching when data.tables
-are present to achieve these performance gains. The benchmarking was run on a
-server with Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H CPUs, and 2 TB RAM.
+computational server runing Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
+CPUs, and 2 TB RAM. All processes limited to a single thread. While medicalcoder
+does not import any namespaces, guarded S3 method dispatching will use
+data.table [@r-data.table] or dplyr [@r-dplyr] native methods for performance
+gains when the respective namespaces are available and the input data is of the
+appropriate class.

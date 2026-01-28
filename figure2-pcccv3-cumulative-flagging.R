@@ -78,6 +78,8 @@ g <-
 ggsave(plot = g, filename = "figure2.png", width = 9, height = 5)
 ggsave(plot = g, filename = "figure2.svg", width = 9, height = 5)
 
+saveRDS(permutations, file = "figure2permutations.rds")
+
 ################################################################################
 #                                 End of File                                  #
 ################################################################################
