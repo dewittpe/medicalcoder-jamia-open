@@ -49,7 +49,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 [**Word count:**]{.underline} XXXX / 2000 (excluding tables and R code chunks),
 XXXX (including R chunks, excluding tables)
 
-[**Tables:**]{.underline} 1 / 2
+[**Tables:**]{.underline} 2 / 2
 
 [**Figures:**]{.underline} 3 / 3
 
@@ -65,54 +65,37 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
 # Abstract {.unnumbered}
 
-Word count: 158 / 150
-<!--
-  word count:
-    objectives:            38
-    materials and methods: 68
-    results:               35
-    conclusions:           17
--->
+Word count: 194 / 150 <!-- Count from MS Word -->
 
 **Objectives**
 
 Develop a self-contained R package with an internal ICD database and utilities
-and applies multiple comorbidity algorithms to ICD-coded data while accounting
-for ICD version, type, full and compact codes, present-on-admission status,
+to apply multiple comorbidity algorithms while accounting for
+ICD version and type, full and compact codes, present-on-admission status,
 primary diagnoses, and longitudinal patient histories.
 
 **Materials and Methods**
 
-```{r}
-#| label: import-benchmark-results
-#| include: false
-mimicivbenchmark <- readRDS("benchmark.rds")
-data.table::setDT(mimicivbenchmark)
-best_case_benchmark <-
-  mimicivbenchmark[
-    subjects == 1e6 &
-      encounters == max(encounters) &
-      data_class == "data.table",
-    min(time_smooth),
-    keyby = .(data_class, subjects, encounters)
-    ]
-```
-
-We created medicalcoder, an R package containing a comprehensive ICD-9 and
-ICD-10 diagnostic and procedure code database and implementations of
+We created medicalcoder, an R package with a comprehensive ICD-9 and ICD-10
+diagnostic and procedure code database with
 `r length(medicalcoder:::comorbidities_methods())` variants of the Charlson,
-Elixhauser, and Pediatric Complex Chronic Conditions (PCCC) algorithms.
-A single function, `medicalcoder::comorbidities()`, is used to apply the
-comorbidities methods with suppport for both encounter-level and cumulative
-longitudinal flagging of comorbidities. Extensive testing ensures consistency
-with published SAS, SQL, and R reference implementations.
+Elixhauser, and Pediatric Complex Chronic Conditions algorithms. A
+single function applies these methods with
+support for encounter-level and cumulative longitudinal flagging, optional present-on-admission
+and primary diagnosis indicators, and mixed ICD versions and code types.
+Extensive testing ensures consistency with published SAS, SQL, and R reference
+implementations.
 
 **Results**
 
-medicalcoder accurately applies all included algorithms across mixed ICD-version
-datasets and efficiently processes large inputs.  1 million subjects with a
-total of more than 2.7 million encounters, can be processed in less than 30
-seconds.
+medicalcoder applies `r length(medicalcoder:::comorbidities_methods())`
+comorbidity variants across mixed ICD‑9/ICD‑10 datasets and supports
+longitudinal flagging with present-on-admission/primary‑diagnosis handling.
+Outputs are consistent with published reference implementations.  medicalcoder
+can be installed an used on any version of R >= 3.5.0 with no other
+dependencies or imports.  When input data is classed as a tibble of data.table,
+considerable computational performance (as much as 90% reduction in expected
+computation time) is observed due to guarded S3 method calls.
 
 **Conclusions**
 
@@ -160,7 +143,7 @@ characterization, and reproducible study of patient populations
 [@quan2005;@yurkovich2015systematic;@guo2022evaluation;@li2008risk].
 
 Existing software packages typically implement one or two comorbidity
-algorithms—most often variants of Charlson and Elixhauser—and support either
+algorithms, most often variants of Charlson and Elixhauser, and support either
 ICD-9 or ICD-10, but not both
 [@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity].
 This leaves users to reconcile mixed ICD-version datasets manually, and input
@@ -190,8 +173,8 @@ compact codes, incorporate POA flags and primary diagnosis indicators, and
 support longitudinal assessment across patient encounters.
 
 The package must have no required dependencies beyond base R. When available, it
-should dynamically use tidyverse or data.table backends to improve performance
-without requiring them for installation or use.
+should dynamically use dplyr [@r-dplyr] or data.table [@r-data.table] backends
+to improve performance without requiring them for installation or use.
 
 # Materials and Methods
 
@@ -234,7 +217,7 @@ who10 <-
 The internal ICD database consists of ICD-9 diagnostic codes from the Centers
 for Disease Control and Prevention (CDC; fiscal years `r cdc9`) and ICD-9-CM and
 ICD-9-PCS codes from the Centers for Medicare and Medicaid Services (CMS; fiscal
-years `r cms9`). ICD-10 diagnostic codes from the CDC (calendar years `cdc10`)
+years `r cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`)
 and the World Health Organization (WHO; calendar years `r who10`) are included,
 along with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`). The
 internal database will be extended as additional code sets are published.
@@ -253,7 +236,7 @@ div the text justification persists -->
 **Table 1:** Comorbidity methods implemented in medicalcoder version `r packageVersion("medicalcoder")`.
 
 | Comorbidity Method                       | Notes                                                                                                   |
-| :---                                     | :----------                                                                                             |
+| :-----                                   | :---------                                                                                              |
 | **Charlson**                             |                                                                                                         |
 | &nbsp;&nbsp; `charlson_deyo1992`         | ICD-9 codes defined in Table 1 of [@quan2005]                                                           |
 | &nbsp;&nbsp; `charlson_quan2005`         | ICD-9 and ICD-10 defined in Table 1 of [@quan2005]; index scoring as reported in Table 2 of [@quan2011] |
@@ -451,7 +434,7 @@ consider three ICD-10 codes: H49.811 (non-technology-dependent metabolic),
 J84.111 (non-technology-dependent respiratory), and Z96.41
 (technology-dependent metabolic). For a patient with seven encounters and one
 code reported on encounters 2, 4, and 6, we apply `method = "pccc_v3.1"` with
-`flag.method = "cumulative"` and codes treated as POA for all six permutations 
+`flag.method = "cumulative"` and codes treated as POA for all six permutations
 `r sprintf("(%s).", paste(sort(unique(figure2permutations$plabel)), collapse = "; "))`
 Figure 2 illustrates when conditions are flagged for each permutation. For
 permutations 1, 2, and 3, the non-technology-dependent metabolic code appears
@@ -464,7 +447,7 @@ non-technology-dependent code. Encounter-level flagging with post hoc
 aggregation would miss metabolic flags on encounters 4 and 5 in permutations 4
 and 6.
 
-## Testing
+### Testing
 
 Within the testing suite there are tests for ensuring consistency between
 `method = "pccc_v2.0"` and the R package pccc[@r-pccc], and between
@@ -475,21 +458,150 @@ MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is verified.
 
 [^d]: https://www.peteredewitt.com/medicalcoder/articles/medicalcoder-vs-mimic.html
 
-## Benchmarking
+### Benchmarking
+
+```{r}
+#| label: benchmarking-results
+#| include: false
+mimicivbenchmark <- readRDS("benchmark.rds")
+data.table::setDT(mimicivbenchmark)
+
+best_case_benchmark <-
+  mimicivbenchmark[
+    subjects == 1e6 &
+      encounters == max(encounters) &
+      data_class == "data.table",
+    .(relative_time = sprintf("%s%%", qwraps2::frmt(100 * min(relative_time), digits = 1))),
+    keyby = .(data_class, subjects, encounters)
+    ]
+
+bnch <-
+  mimicivbenchmark[
+    encounters == max(encounters)
+    ,
+    unique(.SD)
+    ,
+    .SDcols = c("data_class", "method", "subconditions", "encounters", "subjects", "flag.method", "time_smooth", "relative_time", "max_rss_kib_smooth")
+    ]
+
+bnch_encounters <- unique(bnch$encounters)
+bnch_subjects   <- unique(bnch$subjects)
+stopifnot(length(bnch_encounters) == 1L)
+stopifnot(length(bnch_subjects) == 1L)
+bnch[, encounters := NULL]
+bnch[, subjects := NULL]
+
+bnch <-
+  data.table::melt(
+    data = bnch,
+    measure.vars = c("time_smooth", "relative_time", "max_rss_kib_smooth")
+  )
+
+bnch[, flag.method := factor(flag.method, levels = c("current", "cumulative"))]
+bnch[, data_class := factor(data_class, levels = c("data.frame", "tibble", "data.table"))]
+bnch[, method := data.table::fcase(method == "charlson_quan2005", "Charlson (Quan 2005)",
+  method == "elixhauser_quan2005", "Elixhauser (Quan 2005)",
+  method == "pccc_v3.1" & !subconditions, "PCCC 3.1 (without subconditions)",
+  method == "pccc_v3.1" & subconditions, "PCCC 3.1 (with subconditions)")
+  ]
+bnch[, subconditions := NULL]
+
+data.table::setkey(bnch, method, flag.method, variable)
+
+bnch[,
+  value := data.table::fcase(
+    variable == "time_smooth", formatC(      value,      digits = 1, format = "f"),
+    variable == "relative_time" & data_class == "data.frame", "",
+    variable == "relative_time", paste0(formatC(100 * value,      digits = 1, format = "f"), "%"),
+    variable == "max_rss_kib_smooth", formatC(value / (1024^2), digits = 1, format = "f")
+  )]
+bnch[, variable := factor(variable,
+  levels = c("time_smooth", "relative_time", "max_rss_kib_smooth"),
+  labels = c("Average Time (seconds)", "Relative time (to data.frame)", "Max Memory (GiB)")
+  )]
+
+bnch <-
+  data.table::dcast(
+    data = bnch,
+    formula = method + flag.method + variable ~ data_class,
+    value.var = "value"
+  )
+
+bnchmat <- as.matrix(bnch[, .(data.frame, tibble, data.table)])
+```
+
+Benchmarking performance of `medicalcoder::comorbidities()` was done by
+resampling the MIMIC-IV demo dataset [@PhysioNet-mimic-iv-demo-2.2] and applying the
+Charlson (Quan 2005), Elixhauser (Quan 2005), and PCCC v3.1 with and
+without subconditions, to the data on a
+computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
+CPUs, and 2 TB RAM. All processes limited to a single thread.
+
 medicalcoder has been designed to work with just base R.  Any system with R >=
 3.5.0 can install and use medicalcoder.
-
 That said, medicalcoder suggests the use of data.frame extensions tibbles or
 data.tables. When the input data class to `medicalcoder::comorbidities()` is a
 tibble and the dplyr namespace is available, or when the input is a data.table
 and the data.table namespace is available, then guarded S3 methods apply the
-appropriate data-manipulation tools. The result is a 4- to 8-fold decrease in
-expected computation time and memory use (Figure 3). Extensive details on the
-benchmarking are on GitHub[^c].
+appropriate data-manipulation tools.  We observed a best case where the input
+data class of a data.table required only `r best_case_benchmark$relative_time`
+of the time to compute compared to input data class of a data.frame.
+
+**Table 2:** Benchmarking `medicalcoder::comorbidities()` by data class and
+flagging method based on a resampling the MIMIC-IV demonstration dataset
+[@PhysioNet-mimic-iv-demo-2.2] to generate a data set of
+`r qwraps2::frmt(as.integer(bnch_subjects))` subjects, and a total of
+`r qwraps2::frmt(as.integer(bnch_encounters))` encounters.  The benchmarking was performed on a
+computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
+CPUs, and 2 TB RAM. All processes limited to a single thread.  Figure 3
+illustrates the expected time, relative time, and memory use for other
+encounter sizes.
+
+|                                                        | data.frame         | tibble             | data.table         |
+| :----------                                            | ----:              | ----:              | ----:              |
+| __**Charlson**__                                       |                    |                    |                    |
+| &nbsp;&nbsp; **flag.method = "current"**               |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[ 1, 1]` | `r bnchmat[ 1, 2]` | `r bnchmat[ 1, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[ 2, 1]` | `r bnchmat[ 2, 2]` | `r bnchmat[ 2, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[ 3, 1]` | `r bnchmat[ 3, 2]` | `r bnchmat[ 3, 3]` |
+| &nbsp;&nbsp; **flag.method = "cumulative"**            |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[ 4, 1]` | `r bnchmat[ 4, 2]` | `r bnchmat[ 4, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[ 5, 1]` | `r bnchmat[ 5, 2]` | `r bnchmat[ 5, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[ 6, 1]` | `r bnchmat[ 6, 2]` | `r bnchmat[ 6, 3]` |
+| __**Elixhauser**__                                     |                    |                    |                    |
+| &nbsp;&nbsp; **flag.method = "current"**               |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[ 7, 1]` | `r bnchmat[ 7, 2]` | `r bnchmat[ 7, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[ 8, 1]` | `r bnchmat[ 8, 2]` | `r bnchmat[ 8, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[ 9, 1]` | `r bnchmat[ 9, 2]` | `r bnchmat[ 9, 3]` |
+| &nbsp;&nbsp; **flag.method = "cumulative"**            |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[10, 1]` | `r bnchmat[10, 2]` | `r bnchmat[10, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[11, 1]` | `r bnchmat[11, 2]` | `r bnchmat[11, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[12, 1]` | `r bnchmat[12, 2]` | `r bnchmat[12, 3]` |
+| __**PCCC v3.1 (with subconditions)**__                 |                    |                    |                    |
+| &nbsp;&nbsp; **flag.method = "current"**               |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[13, 1]` | `r bnchmat[13, 2]` | `r bnchmat[13, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[14, 1]` | `r bnchmat[14, 2]` | `r bnchmat[14, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[15, 1]` | `r bnchmat[15, 2]` | `r bnchmat[15, 3]` |
+| &nbsp;&nbsp; **flag.method = "cumulative"**            |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[16, 1]` | `r bnchmat[16, 2]` | `r bnchmat[16, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[17, 1]` | `r bnchmat[17, 2]` | `r bnchmat[17, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[18, 1]` | `r bnchmat[18, 2]` | `r bnchmat[18, 3]` |
+| __**PCCC v3.1 (without subconditions)**__              |                    |                    |                    |
+| &nbsp;&nbsp; **flag.method = "current"**               |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[19, 1]` | `r bnchmat[19, 2]` | `r bnchmat[19, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[20, 1]` | `r bnchmat[20, 2]` | `r bnchmat[20, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[21, 1]` | `r bnchmat[21, 2]` | `r bnchmat[21, 3]` |
+| &nbsp;&nbsp; **flag.method = "cumulative"**            |                    |                    |                    |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (Seconds)                | `r bnchmat[22, 1]` | `r bnchmat[22, 2]` | `r bnchmat[22, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[23, 1]` | `r bnchmat[23, 2]` | `r bnchmat[23, 3]` |
+| &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[24, 1]` | `r bnchmat[24, 2]` | `r bnchmat[24, 3]` |
+
+
+Extensive details on the benchmarking are on GitHub[^c].
 
 [^c]: https://github.com/dewittpe/medicalcoder/tree/main/benchmarking
 
-## Comparing to Other R packages
+### Comparing to Other R packages
 
 Comparing medicalcoder to other R packages has been done (see supplements).
 medicalcoder has more features, more comorbidity methods, and greater
