@@ -12,8 +12,8 @@ all: medicalcoder-manuscript.docx
 medicalcoder-manuscript.docx: medicalcoder-manuscript.qmd template.docx references.bib $(RDATA) $(FIGURES)
 	$(QUARTO) render $<
 
-medicalcoder-vs.Rdata: medicalcoder-vs-other-r-packages.R
-	$(RSCRIPTVANILLA) $<
+medicalcoder-vs.Rdata: medicalcoder-vs-other-r-packages.qmd
+	$(QUARTO) render $<
 
 figure1.svg figure1.png figure1.Rdata &: figure1-flag-method-example.R
 	$(RSCRIPTVANILLA) $<
