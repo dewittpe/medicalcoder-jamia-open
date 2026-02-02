@@ -1,41 +1,45 @@
 ---
 title: "medicalcoder vs other R packages"
 
-
 format:
   pdf:
     toc: true
+    number-sections: true
 
 bibliography: references.bib
 ---
 
 # Objective and Setup
 
-Compare results and time to compute between medicalcoder::comorbidities() and
+Compare results and time to compute between `medicalcoder::comorbidities()` and
 other implementations of comorbidity algorithms.
 
 ```{r}
 #| label: setup
 #| include: false
+#| cache: false
 knitr::opts_chunk$set(
   echo = TRUE,
-  collapse = TRUE
+  collapse = TRUE,
+  cache = TRUE
 )
+
+pkg_with_version <- function(pkg) {
+  sprintf("%s v%s", pkg, packageVersion(pkg))
+}
+
+tictoc_ratio <- function(numerator, denominator) {
+  formatC(
+    attr(numerator, "tictoc") / attr(denominator, "tictoc"),
+    format = "d"
+  )
+}
+
+loadNamespace('medicalcoder')
+loadNamespace('data.table')
 ```
 
-```{r}
-#| label: namespaces
-#| echo: true
-#| results: "markup"
-# required namespaces
-library(medicalcoder)
-library(data.table)
-library(icdcomorbid)
-library(multimorbidity)
-library(comorbidity)
-library(pccc)
-```
-
+## Data Prep
 For this exercise we will use the `medicalcoder::mdcr` dataset.
 
 ```{r}
@@ -48,17 +52,14 @@ data.table::setkey(mdcrDT, patid)
 str(mdcrDT)
 ```
 
-# Apply Comorbidity Algorithms
-
-## medicalcoder
-
-Here we apply several comorbidity algorithms to the `mdcrDT` data set via
+## Flagging Comorbidities via ``medicalcoder::comorbidities()`
+Here we apply several comorbidity algorithms to the `mdcrDT` dataset via
 `medicalcoder::comorbidities()`.  The results are stored, along with a timing
 for the work which will be used to compare to other implementations.
-
 We will make several calls to `medicalcoder::comorbidities()` with only the
-`method` argument changing.  As such we define a common set of arguments to
-simplify the calls.
+`method` argument changing.  We also record the system time before and after the
+calls so we can report the time required to apply the methods.
+As such we define a function to simplify the calls.
 
 ```{r}
 #| label: medicalcoder-setup
@@ -83,6 +84,15 @@ call_medicalcoder <- function(method, ...) {
 ```
 
 ```{r}
+#| label: medicalcoder-warm-up
+#| include: false
+# to eliminate the time on the first call resulting from namespace loading run
+# the code once here and then again for the timing, the full set need not be
+# run, just enough to get all the namespaces loaded and data sets built.
+call_medicalcoder(method = "charlson_quan2005")
+```
+
+```{r}
 #| label: medicalcoder-calls
 medicalcoder_charlson_quan2005 <-
   call_medicalcoder(method = "charlson_quan2005")
@@ -97,15 +107,30 @@ medicalcoder_pccc_v2.0 <-
   call_medicalcoder(method = "pccc_v2.0")
 ```
 
-## comorbidity
+# `r pkg_with_version("medicalcoder")` vs \ldots
+
+## `r pkg_with_version("comorbidity")`
+
+### Data Prep
 
 To use the R package comorbidity [@r-comorbidity] we need to split the data by
 ICD version, apply `comorbidity::comorbidity()` to each split, and reconcile the
-two sets. We restrict the input data to only diagnostic codes for Charlson and
-Elixhauser comorbidities.
+two sets.  This need to reconcile the results is critcally important as there
+are many patients with both ICD-9 and ICD-10 codes.
 
 ```{r}
 #| label: comorbidity-setup
+# how many patid have both ICD-9 and ICD-10 codes?
+mdcrDT[
+  ,
+  .(both_icdv = any(icdv == 9) & any(icdv == 10)),
+  by = .(patid)][(both_icdv)
+  ][
+  ,
+  data.table::uniqueN(patid)
+  ]
+
+# split by icvd
 mdcr_icd9  <- subset(mdcrDT, icdv ==  9L)
 mdcr_icd10 <- subset(mdcrDT, icdv == 10L)
 
@@ -113,8 +138,8 @@ mdcr_icd10 <- subset(mdcrDT, icdv == 10L)
 mdcr_icd9 <-
   rbind(
     mdcr_icd9,
-    data.table(
-      patid = setdiff(mdcr$patid, mdcr_icd9$patid),
+    data.table::data.table(
+      patid = setdiff(mdcrDT$patid, mdcr_icd9$patid),
       icdv = 9L,
       code = "",
       dx = 1L
@@ -124,8 +149,8 @@ mdcr_icd9 <-
 mdcr_icd10 <-
   rbind(
     mdcr_icd10,
-    data.table(
-      patid = setdiff(mdcr$patid, mdcr_icd10$patid),
+    data.table::data.table(
+      patid = setdiff(mdcrDT$patid, mdcr_icd10$patid),
       icdv = 10L,
       code = "",
       dx = 1L
@@ -133,23 +158,29 @@ mdcr_icd10 <-
   )
 ```
 
-Now that the data has been split and prepared, we can apply the comorbidity
-algorithms and aggregate the results.  In the calls that follow we include the
-subsetting of the data to just diagnostic codes.  While that could (should) have
-been done when building the datasets it was left to the following calls because
-`medicalcoder::comorbidities()` handles diagnostic and procedure codes by
-function argument.
+Charlson and Elixhauser comorbidities only require the use of diagnosic codes.
+The `mdcr_icd9` and `mdcr_icd10` objects contain both diagnosic and procedure
+codes.  Since `medicalcoder::comorbidities()` is able to handle diagnosic and
+procedure codes via function argument we leave the subsetting of the data to
+diagnosic codes to the timed calls to `comorbidity::comorbidity()` forth coming.
+
+### Charlson
+
+Now that the data has been split and prepared, we can apply the
+`comorbidity::comorbidity()` algorithms and aggregate the results.
 
 ```{r}
 #| label: comorbidity-charlson
 tic <- Sys.time()
+
 comorbidity_charlson_icd9_results <-
   comorbidity::comorbidity(
     x = subset(mdcr_icd9, dx == 1L),
     id = "patid",
     code = "code",
     map = "charlson_icd9_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe comorbidities is also flagged
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
   )
 
 comorbidity_charlson_icd10_results <-
@@ -165,6 +196,7 @@ comorbidity_charlson_icd10_results <-
 comorbidity_charlson_results <-
   rbind(comorbidity_charlson_icd9_results, comorbidity_charlson_icd10_results)
 
+# aggregate to find the flags across each patient record.
 comorbidity_charlson_results <-
   aggregate(. ~ patid, data = comorbidity_charlson_results, FUN = max)
 
@@ -183,27 +215,30 @@ comorbidity_charlson_results[["score"]] <-
 # mode of medicalcoder
 comorbidity_charlson_results[["score"]] <-
   as.integer(comorbidity_charlson_results[["score"]])
+
+# stop timming
 toc <- Sys.time()
 
+# record time needed to build the charlson results
 attr(comorbidity_charlson_results, "tictoc") <-
   as.numeric(difftime(toc, tic, units = "secs"))
-
-str(comorbidity_charlson_results)
 ```
 
-The same work is done for applying the Elixhauser comorbidities save no scoring
-is required here.
+### Elixhauser
+
 
 ```{r}
 #| label: comorbidity-elixhauser
 tic <- Sys.time()
+
 comorbidity_elixhauser_icd9_results <-
   comorbidity::comorbidity(
     x = subset(mdcr_icd9, dx == 1L),
     id = "patid",
     code = "code",
     map = "elixhauser_icd9_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe comorbidities is also flagged
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
   )
 
 comorbidity_elixhauser_icd10_results <-
@@ -230,356 +265,35 @@ toc <- Sys.time()
 
 attr(comorbidity_elixhauser_results, "tictoc") <-
   as.numeric(difftime(toc, tic, units = "secs"))
-
-str(comorbidity_elixhauser_results)
 ```
 
-## icdcomorbid
+### Compare Results
 
-icdcomorbid [@r-icdcomorbid] requires the input data to be in a "wide" format.
-The package provides a tool for this but it takes considerably more time to run
-than alternatives.
+Expected computation time for `comorbidity::comorbidity()` is greater than the
+expected computation time for `medicalcoder::comorbidities()`.  This is mostly due to the need for two
+calls to `comorbidity::comorbidity()`, one for each ICD version, and
+aggregation.
+`comorbidity::comorbidity()` does uses `data.table` for performance, and so does
+`medicalcoder::comorbidities()` in this example.  Still,
+`medicalcoder::comorbidities()` is
+`r tictoc_ratio(comorbidity_charlson_results, medicalcoder_charlson_quan2005)`
+times faster for Charlson comorbidities, and
+`r tictoc_ratio(comorbidity_elixhauser_results, medicalcoder_elixhauser_quan2005)`
+times faster for Elixhauser comorbidities.
 
 ```{r}
-#| label: icdcomorbid-data-format
-#  mdcr_icd9dx_wide <-
-#    icdcomorbid::long_to_wide(
-#      df = mdcr_icd9dx,
-#      idx = "patid",
-#      icd_cols = "code"
-#    )
-#
-# killed process after 15 seconds
-
-tic <- Sys.time()
-
-mdcr_icd9dx  <- mdcr_icd9[ dx == 1L][, DX := sprintf("DX%02d", seq_along(code)), by = .(patid)]
-mdcr_icd10dx <- mdcr_icd10[dx == 1L][, DX := sprintf("DX%02d", seq_along(code)), by = .(patid)]
-
-mdcr_icd9dx_wide <-
-  data.table::dcast(mdcr_icd9dx, patid ~ DX, value.var = "code")
-
-mdcr_icd10dx_wide <-
-  data.table::dcast(mdcr_icd10dx, patid ~ DX, value.var = "code")
-
-toc <- Sys.time()
-
-difftime(toc, tic)
+#| label: medicalcoder-vs-comorbidity-timing
+attr(medicalcoder_charlson_quan2005, "tictoc")   # seconds
+attr(medicalcoder_charlson_quan2011, "tictoc")   # seconds
+attr(medicalcoder_elixhauser_quan2005, "tictoc") # seconds
+attr(comorbidity_charlson_results, "tictoc")     # seconds
+attr(comorbidity_elixhauser_results, "tictoc")   # seconds
 ```
 
-We now apply the Charlson comorbidity algorithm to the data
+The results are consistent as well.
 
 ```{r}
-#| label: icdcomorbid
-#| cache: true
-tic <- Sys.time()
-
-icdcomorbid_charlson_icd9_results <-
-  icdcomorbid::icd9_to_comorbid(
-    df = mdcr_icd9dx_wide,
-    idx = "patid",
-    icd_cols = grep("^DX", names(mdcr_icd9dx_wide), value = TRUE),
-    mapping = "charlson9"
-  )
-
-icdcomorbid_charlson_icd10_results <-
-  icdcomorbid::icd10_to_comorbid(
-    df = mdcr_icd10dx_wide,
-    idx = "patid",
-    icd_cols = grep("^DX", names(mdcr_icd10dx_wide), value = TRUE),
-    mapping = "charlson10"
-  )
-
-data.table::setDT(icdcomorbid_charlson_icd9_results)
-data.table::setDT(icdcomorbid_charlson_icd10_results)
-
-icdcomorbid_charlson_results <-
-  rbind(
-    icdcomorbid_charlson_icd9_results,
-    icdcomorbid_charlson_icd10_results,
-    use.names = TRUE,
-    fill = TRUE
-  )
-
-icdcomorbid_charlson_results <-
-  aggregate(
-    . ~ patid,
-    data = comorbidity_charlson_results,
-    FUN = any,
-    na.rm = TRUE
-  )
-
-toc <- Sys.time()
-
-attr(icdcomorbid_charlson_results, "tictoc") <-
-  as.numeric(difftime(toc, tic, units = "secs"))
-
-str(icdcomorbid_charlson_results)
-```
-
-## multimorbidity
-
-```{r}
-#| label: multimorbidity-charlson
-tic <- Sys.time()
-
-multimorbidity_charlson_results <-
-  multimorbidity::charlson(
-    dat = mdcrDT,
-    id  = patid,
-    version = 19, # default - both ICD-9 and ICD-10 data
-    version_var = icdv
-  )
-toc <- Sys.time()
-
-attr(multimorbidity_charlson_results, "tictoc") <-
-  as.numeric(difftime(toc, tic, units = "secs"))
-
-str(multimorbidity_charlson_results)
-```
-
-## pccc
-
-The pccc package [@r-pccc] required the data to be in a wide format and applied
-the scoring by ICD version.
-
-```{r}
-#| label: oldpccc
-#| cache: true
-tic <- Sys.time()
-
-mdcr_wide <-
-  mdcrDT[][,
-    variable := data.table::fcase(
-      dx == 0, sprintf("PR%02d", seq_along(code)),
-      dx == 1, sprintf("DX%02d", seq_along(code))
-    ),
-    by = .(patid, icdv)
-  ]
-mdcr_wide <-
-  data.table::dcast(mdcr_wide, patid +icdv ~ variable, value.var = "code")
-
-pccc_results <-
-  rbind(
-    pccc::ccc(
-      data = mdcr_wide[icdv == 9L],
-      id = patid,
-      dx_cols = grep("^DX\\d+", names(mdcr_wide), value = TRUE),
-      pc_cols = grep("^PR\\d+", names(mdcr_wide), value = TRUE),
-      icdv = 9
-    )
-    ,
-    pccc::ccc(
-      data = mdcr_wide[icdv == 10L],
-      id = patid,
-      dx_cols = grep("^DX\\d+", names(mdcr_wide), value = TRUE),
-      pc_cols = grep("^PR\\d+", names(mdcr_wide), value = TRUE),
-      icdv = 10
-    )
-  )
-
-pccc_results <-
-  aggregate(
-    . ~ patid,
-    data = pccc_results,
-    FUN = max,
-    na.rm = TRUE
-  )
-
-toc <- Sys.time()
-
-attr(pccc_results, "tictoc") <-
-  as.numeric(difftime(toc, tic, units = "secs"))
-```
-
-# medicalcoder vs...
-
-## comorbidity
-
-## icdcomorbid
-
-## multimorbidity
-
-## pccc
-
-The time required to apply PCCC version 2 [@feudtner2014pediatric] to the data
-set is considerably different between `pccc::ccc()` and `medicalcoder::comorbidities()`.
-medicalcoder was
-`r qwraps2::frmt(attr(pccc_results, "tictoc") / attr(medicalcoder_pccc_v2.0, "tictoc"))`
-times faster.
-
-```{r}
-#| label: medicalcoder-vs-pccc-timing
-attr(medicalcoder_pccc_v2.0, "tictoc")
-attr(pccc_results, "tictoc")
-```
-
-The speed difference is impressive, but it only matters if the results are the
-same or better. We start by checking the flagging for the conditions.
-
-```{r}
-#| label: medicalcoder-vs-pccc-results
-delta <-
-  merge(
-    x = medicalcoder_pccc_v2.0,
-    y = pccc_results,
-    all = TRUE,
-    by = "patid",
-    suffixes = c("_mdcr", "_pccc")
-  )
-
-for (j in setdiff(intersect(names(medicalcoder_pccc_v2.0), names(pccc_results)), "patid")) {
-  xj <-sprintf("%s_mdcr", j)
-  yj <-sprintf("%s_pccc", j)
-  if (identical(delta[[xj]], delta[[yj]])) {
-    print(sprintf("medicalcoder and pccc flagged %s the same.", j))
-    data.table::set(delta, j = xj, value = NULL)
-    data.table::set(delta, j = yj, value = NULL)
-  } else {
-    print(sprintf("medicalcoder and pccc did not flagged %s the same.", j))
-  }
-}
-```
-
-What remains are columns with differnt names or which were unique to
-medicalcoder.  Let's check the technology dependence flag.
-
-```{r}
-identical(
-  delta[["any_tech_dep"]], # medicalcoder::comorbidities()
-  delta[["tech_dep"]]      # pccc::ccc()
-)
-
-all(delta[["any_tech_dep"]] >= delta[["tech_dep"]])
-```
-
-There are differences between the two methods.  Since the
-`medicalcoder::comorbidities()` flag is
-always greater or equal to the `pccc::ccc()` flag it means that there are
-technology dependece flags that `medicalcoder::comorbidities()` is flagging
-conditions when `pccc::ccc()` is not.
-
-
-
-```{r}
-mdcrDT[, code2 := paste(icdv, dx, code, sep = "_")]
-medicalcoder::comorbidities(
-  data = mdcrDT[patid %in% delta[any_tech_dep != tech_dep, patid]],
-  id.vars = c("patid", "code2"),
-  dx.var = "dx",
-  icd.code = "code",
-  icdv.var = "icdv",
-  method = "pccc_v2.0"
-)[any_tech_dep == 1, unique(code2)]
-```
-There are four codes which do not match:
-
-```{r}
-#| include: false
-subset(
-  medicalcoder::get_pccc_codes(),
-  full_code %in% c("V45.85", "V56.2", "86.06", "Z94.2")
-)
-
-subset(
-  medicalcoder::get_icd_codes(with.descriptions = TRUE),
-  full_code %in% c("V45.85", "V56.2", "86.06", "Z94.2")
-)
-```
-
-1. ICD-9-CM V45.85
-   * Documented for version 2 as metabolic (devices) but is only listed under metabolic in the software.  Becuase of how `medicalcoder::comorbidities()` is implemented the subconditon (devices) had to be provided in the tables for `method = "pccc_v2.0"`.  This results in the (improved) mapping to technology dependence.  Perhaps more concerning is that the mapping for V45.85 in `pccc::ccc()` maps to a transplant, which is incorrect.  GitHub issue and pull request have been submitted to resolve this issue[^1].
-2. ICD-9-CM V56.2
-   * Not in the v2 document, but in the software for neuromusc only. This raises a problem that the subcondition is not defined.  To allow for the methods in medicalcoder to work, a non-missing subcondition is needed. device and technology use seems appropriate[^2].
-3. ICD-9-PCS 86.06
-   * Same issue as ICD-9-CM V48.85[^3]
-4. ICD-10-CM Z49.01
-   * Same issue as ICD-9-CM V56.2[^4]
-
-
-[^1]: https://github.com/CUD2V/pccc/issues/49
-[^2]: https://github.com/CUD2V/pccc/issues/46
-[^3]: https://github.com/CUD2V/pccc/issues/48
-[^4]: https://github.com/CUD2V/pccc/issues/55
-
-For transplant we have a similar missmatch between
-`medicalcoder::comorbidities()` and `pccc::ccc()`.
-```{r}
-identical(
-  delta[["any_transplant"]],  # medicalcoder::comorbidities()
-  delta[["transplant"]]       # pccc::ccc()
-)
-  
-all(delta[["any_transplant"]] >= delta[["transplant"]])
-
-medicalcoder::comorbidities(
-  data = mdcrDT[patid %in% delta[any_transplant != transplant, patid]],
-  id.vars = c("patid", "code2"),
-  dx.var = "dx",
-  icd.code = "code",
-  icdv.var = "icdv",
-  method = "pccc_v2.0"
-)[any_transplant == 1, unique(code2)]
-```
-
-* ICD-9-CM 
-* ICD-10-CM Z94.x
-
-# Nice-to-Haves in medicalcoder
-
-As shown above, medicalcoder applies these common comorbidity algorithms
-consistent with other implementations, or with increased precision and
-considerably faster as well.  Additionally, medicalcoder has some nice-to-haves
-for working with the results from calling `medicalcoder::comorbidities()`.
-
-## summary()
-
-An S3 `summary()` method is available for the `medicalcoder_comorbidities` class
-objects returned from `medicalcoder::comorbidities()`.
-
-Below is the structure of the summary for the Charlson, Elixhauser, and PCCC
-returns.  Each is slightly different based on the method.
-
-```{r}
-#| label: medicalcoder-summary
-str( summary(medicalcoder_charlson_quan2005) )
-str( summary(medicalcoder_elixhauser_quan2005) )
-str( summary(medicalcoder_pccc_v2.0) )
-```
-
-We highlight the `conditions` element from `medicalcoder_charlson_quan2005`,
-`medicalcoder_elixhauser_quan2005` and the summary from the
-`medicalcoder_pccc_v2.0` object.  
-These data.frames can be the basis for useful summary tables which can be nicely
-formatted via packages like kableExtra [@r-kableExtra].
-
-
-```{r}
-#| label: summary-table-charlson
-#| echo: true
-#| results: "asis"
-x <- summary(medicalcoder_charlson_quan2005)[["conditions"]]
-kableExtra::kbl(
-  x = x[, c("condition_description", "count", "percent")],
-  format = "latex",
-  booktabs = TRUE
-) |>
-kableExtra::pack_rows("Conditions", 1, 17) |>
-kableExtra::pack_rows("Total Number of Conditions", 18, nrow(x))
-```
-
-```{r}
-#| label: old-stuff
-#| eval: false
-
-
-################################################################################
-# Charlson 2011 and Elixhauser Quan 2005 via comorbidity
-
-tic <- Sys.time()
-
-# check that medicalcoder::comorbidities() and comorbidity::comorbidity()
-# results are the same
+#| label: define-column-matches-between-medicalcoder-and-comorbidity
 charlson_delta <-
   merge(
     x = comorbidity_charlson_results,
@@ -609,7 +323,6 @@ Liver disease (mild)               | mld         | mld
 Liver disease (moderate or severe) | msld        | msld
 Score (based on Quan 2011)         | score       | cci
   ")
-data.table::setDF(charlson_columns)
 
 for (i in seq_len(nrow(charlson_columns))) {
   x <- charlson_columns[["comorbidity"]][i]
@@ -618,22 +331,44 @@ for (i in seq_len(nrow(charlson_columns))) {
     x <- paste0(x, ".x")
     y <- paste0(y, ".y")
   }
-  e <- base::substitute(identical(charlson_delta[[X]], charlson_delta[[Y]]), list(X = x, Y = y))
+  e <- base::substitute(
+    identical(charlson_delta[[X]], charlson_delta[[Y]]),
+    list(X = x, Y = y)
+  )
   print(e)
   r <- eval(e)
   print(r)
   stopifnot(r)
+  # if you are here then the results are the same, remove the columns from the
+  # charlson_delta dataset
   charlson_delta[[x]] <- NULL
   charlson_delta[[y]] <- NULL
 }
+```
 
+The only remaining non-id columns are all from `medicalcoder::comorbidities()`.
+```{r}
 stopifnot(
   identical(
     names(charlson_delta),
     c("patid", "num_cmrb", "cmrb_flag", "age_score")
   )
 )
+summary(medicalcoder_charlson_quan2005$num_cmrb)
+summary(medicalcoder_charlson_quan2005$cmrb_flag)
+summary(medicalcoder_charlson_quan2005$age_score)
+```
 
+* `num_cmrb`: number of comorbidities flagged for the patid
+* `cmrb_flag`: indicator, 0 if no comorbidities are flagged, 1 if at least one
+  comorbidity is flagged.
+* `age_score`: NA in this example as age was not part of the scoring.  Age
+  scores are reported when age is available.
+
+When comparing the results between `medicalcoder::comorbidities()` and
+`comorbidity::comorbidity()` for Elixhauser we again find consistent results.
+
+```{r}
 elixhauser_delta <-
   merge(
     x = comorbidity_elixhauser_results,
@@ -678,6 +413,44 @@ Weight loss                                   | wloss       | WGHTLOSS
   ")
 data.table::setDF(elixhauser_columns)
 
+for (i in seq_len(nrow(elixhauser_columns))) {
+  x <- elixhauser_columns[["comorbidity"]][i]
+  y <- elixhauser_columns[["medicalcoder"]][i]
+  if (x == y) {
+    x <- paste0(x, ".x")
+    y <- paste0(y, ".y")
+  }
+  e <- base::substitute(
+    identical(elixhauser_delta[[X]], elixhauser_delta[[Y]]),
+    list(X = x, Y = y)
+  )
+  print(e)
+  r <- eval(e)
+  print(r)
+  stopifnot(r)
+  elixhauser_delta[[x]] <- NULL
+  elixhauser_delta[[y]] <- NULL
+}
+```
+The remaining non-id columns are unique to `medicalcoder::comorbidities()`.
+```{r}
+#| label: medicalcoder-vs-comorbidity-elixhauser-remainder
+stopifnot(
+  identical(
+    names(elixhauser_delta),
+    c("patid", "HTN_C",
+      "num_cmrb", "cmrb_flag",
+      "mortality_index", "readmission_index")
+  )
+)
+str(elixhauser_delta)
+```
+
+`HTN_C` is any hypertension and is the same as an OR statement between
+uncomplicated and complicated hypertension.
+
+```{r}
+#| label: medicalcoder-vs-comorbidity-htnc
 # the HTN_C is only in the medicalcoder results
 stopifnot(
   identical(
@@ -688,85 +461,841 @@ stopifnot(
     )
   )
 )
+```
+The `mortality_index` and `readmission_index`
 
-for (i in seq_len(nrow(elixhauser_columns))) {
-  x <- elixhauser_columns[["comorbidity"]][i]
-  y <- elixhauser_columns[["medicalcoder"]][i]
-  if (x == y) {
-    x <- paste0(x, ".x")
-    y <- paste0(y, ".y")
-  }
-  e <- base::substitute(identical(elixhauser_delta[[X]], elixhauser_delta[[Y]]), list(X = x, Y = y))
-  print(e)
-  r <- eval(e)
-  print(r)
-  stopifnot(r)
-  elixhauser_delta[[x]] <- NULL
-  elixhauser_delta[[y]] <- NULL
+```{r}
+#| label: medicalcoder-vs-comorbidity-index
+summary(medicalcoder_elixhauser_quan2005$mortality_index)
+summary(medicalcoder_elixhauser_quan2005$readmission_index)
+```
+
+## `r pkg_with_version("icdcomorbid")`
+
+### Data Prep
+
+icdcomorbid [@r-icdcomorbid] requires the input data to be in a "wide" format.
+The package provides a tool for this but it takes considerably more time to run
+than alternatives.
+
+```{r}
+#| label: icdcomorbid-data-format
+
+#  mdcr_icd9dx_wide <-
+#    icdcomorbid::long_to_wide(
+#      df = mdcr_icd9dx,
+#      idx = "patid",
+#      icd_cols = "code"
+#    )
+#
+# killed process after 15 seconds, data.table is much faster
+
+tic <- Sys.time()
+
+mdcr_wide <-
+  split(subset(mdcrDT, dx == 1L), by = "icdv") |>
+  lapply(function(DT) {
+    DT[, DX := sprintf("DX%02d", seq_along(code)), by = .(patid)]
+  }) |>
+  lapply(data.table::dcast, patid ~ DX, value.var = "code")
+
+toc <- Sys.time()
+
+difftime(toc, tic)
+```
+
+## Charlson
+
+We now apply the Charlson comorbidity algorithm to the data
+
+```{r}
+#| label: icdcomorbid
+tic <- Sys.time()
+
+icdcomorbid_charlson_icd9_results <-
+  icdcomorbid::icd9_to_comorbid(
+    df = mdcr_wide[["9"]],
+    idx = "patid",
+    icd_cols = grep("^DX", names(mdcr_wide[["9"]]), value = TRUE),
+    mapping = "charlson9"
+  )
+
+icdcomorbid_charlson_icd10_results <-
+  icdcomorbid::icd10_to_comorbid(
+    df = mdcr_wide[["10"]],
+    idx = "patid",
+    icd_cols = grep("^DX", names(mdcr_wide[["10"]]), value = TRUE),
+    mapping = "charlson10"
+  )
+
+icdcomorbid_charlson_results <-
+  rbind(
+    data.table::setDT(icdcomorbid_charlson_icd9_results),
+    data.table::setDT(icdcomorbid_charlson_icd10_results),
+    use.names = TRUE,
+    fill = TRUE
+  )
+
+icdcomorbid_charlson_results <-
+  aggregate(
+    . ~ patid,
+    data = icdcomorbid_charlson_results,
+    FUN = any,
+    na.rm = TRUE
+  )
+
+toc <- Sys.time()
+
+attr(icdcomorbid_charlson_results, "tictoc") <-
+  as.numeric(difftime(toc, tic, units = "secs"))
+```
+
+### Compare Results
+
+To process the `r length(unique(mdcrDT$patid))` patient records in the `mdcrDT`
+data set, icdcomorbid took
+`r tictoc_ratio(icdcomorbid_charlson_results, medicalcoder_charlson_quan2005)`
+times longer to process the data than medicalcoder did.
+
+
+```{r}
+#| label: medicalcoder-vs-icdcomorbid-timing
+attr(medicalcoder_charlson_quan2005, "tictoc") # seconds
+attr(icdcomorbid_charlson_results, "tictoc")   # seconds
+```
+
+The return from icdcomorbid are booleans. We will coerce to integers before
+comparing to medicalcoder.
+
+```{r}
+#| label: icdcomorbid-to-int
+data.table::setDT(icdcomorbid_charlson_results)
+for (j in setdiff(names(icdcomorbid_charlson_results), "patid")) {
+  data.table::set(
+    icdcomorbid_charlson_results,
+    j = j,
+    value = as.integer(icdcomorbid_charlson_results[[j]])
+  )
 }
-
-stopifnot(identical(names(elixhauser_delta), c("patid", "HTN_C", "num_cmrb", "cmrb_flag", "mortality_index", "readmission_index")))
-
-
-################################################################################
-# multimorbidity
-
-
-# false negatives:
-deltas <-
+mdcr_v_icdcomorbid <-
   merge(
-    x = medicalcoder_charlson_quan2005,
+    x = medicalcoder_charlson_quan2011,
+    y = icdcomorbid_charlson_results,
+    all = TRUE,
+    by = c("patid")
+  )
+```
+
+Let's compare the results starting the AIDS/HIV.
+```{r}
+identical(
+  mdcr_v_icdcomorbid[["aidshiv"]],  # medicalcoder::comorbidities()
+  mdcr_v_icdcomorbid[["aids_hiv"]]  # icdcomorbid
+)
+
+mdcr_v_icdcomorbid[aidshiv != aids_hiv, .(patid, aidshiv, aids_hiv)]
+```
+
+There are differences in the flags for AIDS/HIV, all false-negatives from
+icdcomorbid.  The issue, as shown below, is that ICD-9-CM code 042 is not
+flagged as AIDS/HIV by icdcomorbid.  This appears to be due to the string
+"042.x" using within the json files within icdcomorbid for mapping codes to
+comorbidities.  Table 1 witin Quan (2005) [@quan2005] reports "042.x-044.x"
+which should match any ICD-9 code under the three digit code 042, 043, or 044.
+(Note: 043 and 044 were removed from the ICD-9-CM standard starting October 1,
+1994 (fiscal year 1995) which is before the earliest set of codes medicalcoder
+has in its internal database.)
+
+```{r}
+merge(
+  x = mdcrDT[patid %in% mdcr_v_icdcomorbid[aidshiv != aids_hiv, patid]],
+  y = subset(
+        x      = medicalcoder::get_charlson_codes(),
+        subset = condition == "aidshiv",
+        select = c("code", "icdv", "dx", "condition", "charlson_quan2005")
+        ),
+  by = c("code", "icdv", "dx")
+)
+```
+
+```{r}
+mdcr_v_icdcomorbid[, aidshiv := NULL]
+mdcr_v_icdcomorbid[, aids_hiv := NULL]
+```
+
+Next, congestive heart failure.
+```{r}
+identical(
+  mdcr_v_icdcomorbid[["chf"]],  # medicalcoder::comorbidities()
+  mdcr_v_icdcomorbid[["congestive_heart_failure"]]  # icdcomorbid
+)
+mdcr_v_icdcomorbid[
+  chf != congestive_heart_failure,
+  .(patid, chf, congestive_heart_failure)
+]
+
+mdcr_v_icdcomorbid[, .N, keyby = .(chf, congestive_heart_failure)]
+```
+
+Focusing on the differences:
+```{r}
+mdcr_v_icdcomorbid[
+  !Vectorize(identical)(chf, congestive_heart_failure),
+  .N,
+  keyby = .(chf, congestive_heart_failure)]
+```
+
+There are records which are missing form the results from icdcomorbid.  In these
+cases, it appears that the missing rows are from records with no comorbidities
+flagged. It should be noted that not all cases of `num_cmrb == 0` have missing
+values for `congestive_heart_failure`.
+
+```{r}
+mdcr_v_icdcomorbid[num_cmrb == 0, .N]
+mdcr_v_icdcomorbid[is.na(congestive_heart_failure), all(num_cmrb == 0)]
+```
+
+What about the cases where icdcomorbid flagged congestive_heart_failure and
+medicalcoder did not
+```{r}
+# where does icdcomorbid flag that medicalcoder does not?
+DT <-
+  mdcrDT[patid %in% mdcr_v_icdcomorbid[congestive_heart_failure > chf, patid]]
+
+all(DT$icdv == 10L)
+
+DT <- DT[, unique(.SD), .SDcols = c("code")]
+DT[, code_id := 1:.N]
+DT[, DX := "DX"]
+DT <- data.table::dcast(DT, code_id ~ DX, value.var = "code")
+
+false_positives <-
+  icdcomorbid::icd10_to_comorbid(
+    df = DT,
+    idx = "code_id",
+    icd_cols = "DX", mapping = "charlson10"
+  )
+data.table::setDT(false_positives)
+
+false_positives[(congestive_heart_failure), .N]
+
+DT[
+  false_positives[(congestive_heart_failure)], on = "code_id"
+  ][
+  , .SD, .SDcols = keep
+  ]
+```
+
+* P2930 (full code P29.30) should not be part of the Charlson comorbidities for
+  CHF, I'm not sure why this is flagging at the moment, the JSON files within
+  icdcomorbid report the code P29.0 only, which is correct and consistent with
+  Table 1 of [@quan2005].
+
+* I1310 (full code I13.10) should not flag based on what I see in the
+  icdcomorbid JSON files.
+
+```{r}
+cat(
+  scan(
+    system.file(package = "icdcomorbid", "comorbidity_mappings", "charlson10.json"),
+    what = "character", sep = "\n", quiet = TRUE
+    )[3]
+)
+```
+
+And what about the cases where medicalcoder flags and icdcomorbid does not?
+```{r}
+false_negatives <-
+  merge(
+    x = mdcrDT[patid %in% mdcr_v_icdcomorbid[congestive_heart_failure < chf, patid]],
+    y = subset(
+          x      = medicalcoder::get_charlson_codes(),
+          subset = condition == "chf",
+          select = c("code", "icdv", "dx", "condition", "charlson_quan2005")
+          ),
+    by = c("code", "icdv", "dx")
+  )
+str(false_negatives)
+
+unique(false_negatives[icdv == 9 & dx == 1, .(code)][["code"]])
+unique(false_negatives[icdv == 10 & dx == 1, .(code)][["code"]])
+```
+
+These are all false negatives from icdcomorbid.
+
+Given the false positive and false negative results, along with several orders
+of magnitude longer computation time, we conclude here that medicalcoder is
+superior to icdcomorbid.
+
+There are many more conditions to explore, but the above should be sufficent to
+support using medicalcoder over icdcomorbid.
+
+## `r pkg_with_version("multimorbidity")`
+
+### Data Prep
+
+The R package multimorbidity [@r-multimorbidity] can apply Charlson and
+Elixhauser comorbidities.  The call to `multimorbidity::charlson()` requires
+that the input data "has been properly prepared using
+`multimorbidity::prepare_data()`."  This is not a suggestion.  Failure to do so
+properly will result in errors.  For example, not using the column name `dx` for
+the diagnostic code can result in an error.
+
+```{r}
+#| label: multimorbidity-data-prep-issue-without-error
+DF <-
+  data.frame(
+    code_id = c("ICD-9-CM 042", "ICD-10-CM B20"),
+    dx      = c("042", "B20"),
+    icdv = c(9, 10)
+  )
+
+multimorbidity::charlson(
+  dat = DF,
+  id = code_id,
+  dx = dx,
+  version_var = icdv
+) |>
+dplyr::select(id, charlson_hiv)
+```
+
+Now if we rename the dx to code and call the method again we will get an error.
+```{r}
+#| label: multimorbidity-data-prep-issue-with-error
+#| error: true
+DF <- dplyr::rename(DF, code = dx)
+DF
+multimorbidity::charlson(
+  dat = DF,
+  id = code_id,
+  dx = code,
+  version_var = icdv
+)
+```
+
+To prepare the data for calling `multimorbidity::charlson()` we do the
+following:
+
+```{r}
+#| label: multimorbidity-data-prep
+mdcrDT2 <- data.table::copy(mdcrDT)
+mdcrDT2 <- mdcrDT2[dx == 1L]
+mdcrDT2[, dx := NULL]
+data.table::setnames(mdcrDT2, old = c("code"), new = c("dx"))
+mdcrDT2 <-
+  rbind(mdcrDT2,
+    data.table::data.table(
+      patid = setdiff(mdcrDT$patid, mdcrDT2$patid),
+      icdv = 9L,
+      dx = ""
+    )
+  )
+```
+
+### Charlson
+
+The following should flag Charlson comorbidities via
+`multimorbidity::charlson()`.
+
+```{r}
+#| label: multimorbidity-charlson
+tic <- Sys.time()
+
+multimorbidity_charlson_results <-
+  multimorbidity::charlson(
+    dat = mdcrDT2,
+    id  = patid,
+    version_var = icdv
+  )
+
+toc <- Sys.time()
+
+attr(multimorbidity_charlson_results, "tictoc") <-
+  as.numeric(difftime(toc, tic, units = "secs"))
+```
+
+### Compare Results
+
+`multimorbidity::charlson` took
+`r tictoc_ratio(multimorbidity_charlson_results, medicalcoder_charlson_quan2005)`
+times longer to process the `r length(unique(mdcrDT$patid))` patient records in
+`mdcrDT`.
+
+```{r}
+#| label: medicalcoder-vs-multimorbidity-timing
+attr(medicalcoder_charlson_quan2005, "tictoc")  # seconds
+attr(medicalcoder_charlson_quan2011, "tictoc")  # seconds
+attr(multimorbidity_charlson_results, "tictoc") # seconds
+```
+
+```{r}
+# the return form multimorbidity have numeric columns for the indicators not
+# integers
+for (j in names(multimorbidity_charlson_results)) {
+  multimorbidity_charlson_results[[j]] <-
+    as.integer(multimorbidity_charlson_results[[j]])
+}
+mdcr_v_multimorbidity <-
+  merge(
+    x = medicalcoder_charlson_quan2011,
     y = multimorbidity_charlson_results,
     all = TRUE,
     by.x = "patid",
     by.y = "id"
   )
-setDT(deltas)
+```
 
-missing_rheum_codes <-
+Some of the condition flags are the same:
+```{r}
+stopifnot(
+  identical(
+    mdcr_v_multimorbidity[["aidshiv"]],     # medicalcoder
+    mdcr_v_multimorbidity[["charlson_hiv"]] # multimorbidity
+  )
+  ,
+  identical(
+    mdcr_v_multimorbidity[["cebvd"]],           # medicalcoder
+    mdcr_v_multimorbidity[["charlson_cerebro"]] # multimorbidity
+  )
+  ,
+  identical(
+    mdcr_v_multimorbidity[["hp"]],                # medicalcoder
+    mdcr_v_multimorbidity[["charlson_hemi_para"]] # multimorbidity
+  )
+  ,
+  identical(
+    mdcr_v_multimorbidity[["pud"]],                 # medicalcoder
+    mdcr_v_multimorbidity[["charlson_peptic_ulcer"]] # multimorbidity
+  )
+  ,
+  identical(
+    mdcr_v_multimorbidity[["rhd"]],                 # medicalcoder
+    mdcr_v_multimorbidity[["charlson_rheum"]] # multimorbidity
+  )
+)
+```
+
+Other conditions have differences in the flags between
+`medicalcoder::comorbidities()` and `multimorbidity::charlson()`.
+
+For example, dementia was not flagged by `multimorbidity::charlson().
+```{r}
+mdcr_v_multimorbidity[, .N, keyby = .(dem, charlson_dementia)]
+
+dem_fn <-
   merge(
-    x = subset(mdcr, patid %in% deltas[rhd != charlson_rheum, patid]),
-    y = subset(medicalcoder::get_charlson_codes(), charlson_quan2005 == 1L),
+    x = mdcrDT[patid %in% mdcr_v_multimorbidity[dem != charlson_dementia, patid]],
+    y = subset(
+          x      = medicalcoder::get_charlson_codes(),
+          subset = condition == "dem",
+          select = c("code", "icdv", "dx", "condition", "charlson_quan2005")
+          ),
     by = c("code", "icdv", "dx")
   )
-missing_rheum_codes <- subset(missing_rheum_codes, condition == "rhd")
-missing_rheum_codes <- unique(missing_rheum_codes[, c("icdv", "dx", "code", "full_code")])
-setDT(missing_rheum_codes)
-missing_rheum_codes[, codeid := 1:.N]
+unique(dem_fn[, .(code, icdv, dx)])
+medicalcoder::lookup_icd_codes("2941")
+medicalcoder::lookup_icd_codes("29410")
+```
 
-stopifnot(all(
-  medicalcoder::comorbidities(
-    data = missing_rheum_codes,
-    id.vars = "codeid",
-    icd.codes = "code",
-    icdv.var = "icdv",
-    dx.var = "dx",
-    method = "charlson_quan2005",
-    poa = 1L,
-    primarydx = 0L
-  )$rhd == 1
-))
+ICD-9-CM 294.10 is a valid code that should map to Dementia (Table 1 of
+[@quan2005].  Likely issue is that Table 1 of [@quan2005] reports the four digit
+"249.1" and not the five digit "249.10". The more granular 249.10 should still
+flag, this is a flag negative from `multimorbidity::charlson()`.
 
-stopifnot(all(
-  multimorbidity::charlson(
-    dat = missing_rheum_codes,
-    id = codeid,
-    version = 19,
-    version_var = icdv
-  )$charlson_rheum == 0
-))
+Chronic pulmonary disease (COPD), has differences too.
+```{r}
+mdcr_v_multimorbidity[, .N, keyby = .(copd, charlson_chronic_pulm)]
+copd_fn <-
+  merge(
+    x = mdcrDT[patid %in% mdcr_v_multimorbidity[copd != charlson_chronic_pulm, patid]],
+    y = subset(
+          x      = medicalcoder::get_charlson_codes(),
+          subset = condition == "copd",
+          select = c("code", "icdv", "dx", "condition", "charlson_quan2005")
+          ),
+    by = c("code", "icdv", "dx")
+  )
+unique(copd_fn[, .(code, icdv, dx)])
+medicalcoder::lookup_icd_codes("490")
+subset(
+  medicalcoder::lookup_icd_codes("^490\\d*", regex = TRUE),
+  dx == 1
+)
+
+medicalcoder::lookup_icd_codes("I278[12]", regex = TRUE)
+```
+
+ICD-9 490 is a valid diagnostic code.  The false negative from the
+`multimorbidity::charlson()` is likely do to the  use of "490.x" in Table 1 of
+[@quan2005].
+
+The ICD-10 I27.81 and I27.82 codes are likely false negatives form
+`medicalcoder::charlson()` as [@quan2005] only reports the four digit I27.8 code
+in Table 1.
+
+
+Diabetes has two levels, complicated and uncomplicated.  The results between
+`medicalcoder::comorbidities()` and `multimorbidity::charlson()` are consistent
+for complicated diabetes, but not the uncomplicated.
+```{r}
+identical(
+  mdcr_v_multimorbidity[["dmc"]],            # medicalcoder
+  mdcr_v_multimorbidity[["charlson_diab_c"]] # multimorbidity
+)
+identical(
+  mdcr_v_multimorbidity[["dm"]],              # medicalcoder
+  mdcr_v_multimorbidity[["charlson_diab_uc"]] # multimorbidity
+)
+
+mdcr_v_multimorbidity[, .N, keyby = .(dm, charlson_diab_uc)]
+mdcr_v_multimorbidity[, .N, keyby = .(dmc, charlson_diab_c)]
+mdcr_v_multimorbidity[, .N, keyby = .(dm, dmc, charlson_diab_uc, charlson_diab_c)]
+```
+The above indicates that records can be flagged as both uncomplicated and
+complicated diabetes by `multimorbidity::charlson()` whereas
+`medicalcoder::comorbidities()` returns only the more sever level.
+
+```{r}
+dm_fn <-
+  merge(
+    x = mdcrDT[patid %in% mdcr_v_multimorbidity[dm > charlson_diab_uc, patid]],
+    y = subset(
+          x      = medicalcoder::get_charlson_codes(),
+          subset = condition == "dm",
+          select = c("code", "icdv", "dx", "condition", "charlson_quan2005")
+          ),
+    by = c("code", "icdv", "dx")
+  )
+unique(dm_fn[, .(code, icdv, dx)])
+medicalcoder::lookup_icd_codes(c("E13.6", "E13.69"))
+```
+A quick spot check of the codes indicate more false negatives from
+`multimorbidity::charlson()`.  For example ICD-10-CM E13.6 is listed in Table 1
+of [@quan2005] as diabetes without chronic complication.  It appears the five
+digit E13.6x codes are missed by `multimorbidity::charlson()`.
+
+Additonal mismatches:
+```{r}
+mdcr_v_multimorbidity[, .N, keyby = .(mal, charlson_malig)]
+mdcr_v_multimorbidity[, .N, keyby = .(mst, charlson_met_solid)]
+mdcr_v_multimorbidity[, .N, keyby = .(chf, charlson_chf)]
+mdcr_v_multimorbidity[, .N, keyby = .(mld, charlson_mild_liv)]
+mdcr_v_multimorbidity[, .N, keyby = .(msld, charlson_mod_sev_liv)]
+mdcr_v_multimorbidity[, .N, keyby = .(mi, charlson_myocar)]
+mdcr_v_multimorbidity[, .N, keyby = .(pvd, charlson_periph_vasc)]
+mdcr_v_multimorbidity[, .N, keyby = .(rnd, charlson_renal)]
+```
+
+Given that `medicalcoder::comorbidities()` is considerably faster than
+`multimorbidity::charlson()` and `multimorbidity::charlson()` has demonstribable
+false negavtives, we conclude `medicalcoder` is supperior to `multimorbidity`
+for flagging Charlson comorbidities.
+
+## `r pkg_with_version("pccc")`
+
+### Data Prep
+
+The pccc package [@r-pccc] required the data to be in a wide format and applied
+the scoring by ICD version.
+
+```{r}
+#| label: oldpccc
+mdcr_wide <-
+  mdcrDT[][,
+    variable := data.table::fcase(
+      dx == 0, sprintf("PR%02d", seq_along(code)),
+      dx == 1, sprintf("DX%02d", seq_along(code))
+    ),
+    by = .(patid, icdv)
+  ]
+mdcr_wide <-
+  data.table::dcast(mdcr_wide, patid + icdv ~ variable, value.var = "code")
+```
+
+```{r}
+#| label: pccc_results
+tic <- Sys.time()
+
+pccc_results <-
+  rbind(
+    pccc::ccc(
+      data = mdcr_wide[icdv == 9L],
+      id = patid,
+      dx_cols = grep("^DX\\d+", names(mdcr_wide), value = TRUE),
+      pc_cols = grep("^PR\\d+", names(mdcr_wide), value = TRUE),
+      icdv = 9
+    )
+    ,
+    pccc::ccc(
+      data = mdcr_wide[icdv == 10L],
+      id = patid,
+      dx_cols = grep("^DX\\d+", names(mdcr_wide), value = TRUE),
+      pc_cols = grep("^PR\\d+", names(mdcr_wide), value = TRUE),
+      icdv = 10
+    )
+  )
+
+pccc_results <-
+  aggregate(
+    . ~ patid,
+    data = pccc_results,
+    FUN = max,
+    na.rm = TRUE
+  )
+
+toc <- Sys.time()
+
+attr(pccc_results, "tictoc") <-
+  as.numeric(difftime(toc, tic, units = "secs"))
+```
+
+### Compare Results
+
+The time required to apply PCCC version 2 [@feudtner2014pediatric] to the data
+set is considerably different between `pccc::ccc()` and `medicalcoder::comorbidities()`.
+medicalcoder was
+`r tictoc_ratio(pccc_results, medicalcoder_pccc_v2.0)`
+times faster.
+
+```{r}
+#| label: medicalcoder-vs-pccc-timing
+attr(medicalcoder_pccc_v2.0, "tictoc") # seconds
+attr(pccc_results, "tictoc") # seconds
+```
+
+The speed difference is impressive, but it only matters if the results are the
+same or better. We start by checking the flagging for the conditions.
+
+```{r}
+#| label: medicalcoder-vs-pccc-results
+mdcr_v_pccc <-
+  merge(
+    x = medicalcoder_pccc_v2.0,
+    y = pccc_results,
+    all = TRUE,
+    by = "patid",
+    suffixes = c("_mdcr", "_pccc")
+  )
+```
+
+Between the two methods, the flag for any condition are the same
+```{r}
+#| label: mdcr-v-pccc-flag
+stopifnot(
+  identical(
+    mdcr_v_pccc[["cmrb_flag"]],  # medicalcoder::comorbidities()
+    mdcr_v_pccc[["ccc_flag"]]    # pccc::ccc()
+  )
+)
+
+# remove these columns from mdcr_v_pccc.  We'll remove the columns after
+# comparisons as a way to show that we've covered all the information in
+# mdcr_v_pccc.
+mdcr_v_pccc[, cmrb_flag := NULL]
+mdcr_v_pccc[, ccc_flag  := NULL]
+```
+
+For the conditions we also have agreement between the two packages:
+```{r}
+#| label: mdcr-v-pccc-conditions
+common_names <-
+  setdiff(
+    intersect(names(medicalcoder_pccc_v2.0), names(pccc_results)),
+    "patid"
+  )
+for (j in common_names) {
+  xj <- sprintf("%s_mdcr", j)
+  yj <- sprintf("%s_pccc", j)
+  if (identical(mdcr_v_pccc[[xj]], mdcr_v_pccc[[yj]])) {
+    print(sprintf("medicalcoder and pccc flagged %s the same.", j))
+    data.table::set(x = mdcr_v_pccc, j = xj, value = NULL)
+    data.table::set(x = mdcr_v_pccc, j = yj, value = NULL)
+  } else {
+    print(sprintf("medicalcoder and pccc did not flagged %s the same.", j))
+  }
+}
+```
+
+What remains are columns with different names or which were unique to
+medicalcoder.  Let's check the technology dependence flag.
+
+```{r}
+#| label: medicalcoder-vs-pccc-tech-dep
+identical(
+  mdcr_v_pccc[["any_tech_dep"]], # medicalcoder::comorbidities()
+  mdcr_v_pccc[["tech_dep"]]      # pccc::ccc()
+)
+
+all(mdcr_v_pccc[["any_tech_dep"]] >= mdcr_v_pccc[["tech_dep"]])
+```
+
+There are differences between the two methods. Since the
+`medicalcoder::comorbidities()` flag is
+always greater or equal to the `pccc::ccc()` flag it means that there are
+technology dependence flags that `medicalcoder::comorbidities()` is flagging
+conditions when `pccc::ccc()` is not.
+
+```{r}
+#| label: medicalcoder-vs-pccc-tech-dep-codes
+mdcrDT[, code2 := paste(icdv, dx, code, sep = "_")]
+
+medicalcoder::comorbidities(
+  data = mdcrDT[patid %in% mdcr_v_pccc[any_tech_dep != tech_dep, patid]],
+  id.vars = c("patid", "code2"),
+  dx.var = "dx",
+  icd.code = "code",
+  icdv.var = "icdv",
+  method = "pccc_v2.0"
+)[any_tech_dep == 1, sort(unique(code2))]
+```
+There are four codes which do not match.  Each of these have been reported on
+GitHub as issues with pull requests to fix the issues.
+
+```{r}
+#| label: medicalcoder-vs-pccc-tech-dep-codes-lookup
+#| include: false
+subset(
+  medicalcoder::get_pccc_codes(),
+  full_code %in% c("V45.85", "V56.2", "86.06", "Z94.2")
+)
+
+subset(
+  medicalcoder::get_icd_codes(with.descriptions = TRUE),
+  full_code %in% c("V45.85", "V56.2", "86.06", "Z94.2")
+)
+```
+
+1. ICD-9-CM V45.85
+   * Documented for version 2 as metabolic (devices) but is only listed under
+     metabolic in the software.  Because of how `medicalcoder::comorbidities()`
+     is implemented the subconditon (devices) had to be provided in the tables
+     for `method = "pccc_v2.0"`.  This results in the (improved) mapping to
+     technology dependence.  Perhaps more concerning is that the mapping for
+     V45.85 in `pccc::ccc()` maps to a transplant, which is incorrect.  GitHub
+     issue and pull request have been submitted to resolve this issue[^1].
+2. ICD-9-CM V56.2
+   * Not in the v2 document, but in the software for neuromusc only. This raises
+     a problem that the subcondition is not defined.  To allow for the methods
+     in medicalcoder to work, a non-missing subcondition is needed. Device and
+     technology use seems appropriate[^2].
+3. ICD-9-PCS 86.06
+   * Same issue as ICD-9-CM V48.85[^3]
+4. ICD-10-CM Z49.01
+   * Same issue as ICD-9-CM V56.2[^4]
+
+[^1]: https://github.com/CUD2V/pccc/issues/49
+[^2]: https://github.com/CUD2V/pccc/issues/46
+[^3]: https://github.com/CUD2V/pccc/issues/48
+[^4]: https://github.com/CUD2V/pccc/issues/55
+
+```{r}
+#| label: remove-tech-columns-from-mdcr_v_pccc
+mdcr_v_pccc[, any_tech_dep := NULL]
+mdcr_v_pccc[, tech_dep := NULL]
+```
+
+For transplant we have a similar mismatch between
+`medicalcoder::comorbidities()` and `pccc::ccc()`.
+
+```{r}
+#| label: medicalcoder-vs-pccc-transplant
+identical(
+  mdcr_v_pccc[["any_transplant"]],  # medicalcoder::comorbidities()
+  mdcr_v_pccc[["transplant"]]       # pccc::ccc()
+)
+
+all(mdcr_v_pccc[["any_transplant"]] >= mdcr_v_pccc[["transplant"]])
+
+medicalcoder::comorbidities(
+  data = mdcrDT[patid %in% mdcr_v_pccc[any_transplant != transplant, patid]],
+  id.vars = c("patid", "code2"),
+  dx.var = "dx",
+  icd.code = "code",
+  icdv.var = "icdv",
+  method = "pccc_v2.0"
+)[any_transplant == 1, sort(unique(code2))]
+```
+
+* ICD-9-CM V42.0[^5]
+  * Documented as renal (transplant); missing from the transplant set in the
+    pccc_1.0.7/src/pccc.cpp
+
+* ICD-10-CM Z94.x[^6]
+  * Specifically Z94.1, Z94.2, Z94.4, Z94.81, Z94.82, Z94.83, Z94.84 All
+    documented as subcondition transplant but are missing from the transplant
+    set in the pccc_1.0.7/src/pccc.cpp
+
+[^5]: https://github.com/CUD2V/pccc/issues/54
+[^6]: https://github.com/CUD2V/pccc/issues/56
+
+```{r}
+#| label: remove-transplant-columns-from-mdcr_v_pccc
+mdcr_v_pccc[, any_transplant := NULL]
+mdcr_v_pccc[, transplant := NULL]
+```
+
+Additionally, `medicalcoder::comorbidities()` returns a two columns which are
+not returned from `pccc::ccc()`. The
+`misc` column flags
+miscellaneous conditions.  These conditions are only technology dependence or
+transplant subconditions and reported as such in `pccc::ccc()`.  The `num_cmrb`
+column reports the "number of comorbidities" flagged for the patid.
+```{r}
+#| label: mdcr-v-pccc-misc-and-num_cmrb
+mdcr_v_pccc
+medicalcoder_pccc_v2.0[, .N, keyby = .(misc, any_tech_dep, any_transplant)]
+summary(mdcr_v_pccc$num_cmrb)
+```
+
+# Nice-to-Haves in `r pkg_with_version("medicalcoder")`
+
+As shown above, medicalcoder applies these common comorbidity algorithms
+consistent with other implementations, or with increased precision and
+considerably faster as well.  Additionally, medicalcoder has some nice-to-haves
+for working with the results from calling `medicalcoder::comorbidities()`.
+
+## summary()
+
+An S3 `summary()` method is available for the `medicalcoder_comorbidities` class
+objects returned from `medicalcoder::comorbidities()`.
+
+Below is the structure of the summary for the Charlson, Elixhauser, and PCCC
+returns.  Each is slightly different based on the method.
+
+```{r}
+#| label: medicalcoder-summary
+str( summary(medicalcoder_charlson_quan2005) )
+str( summary(medicalcoder_elixhauser_quan2005) )
+str( summary(medicalcoder_pccc_v2.0) )
+```
+
+We highlight the `conditions` element from `medicalcoder_charlson_quan2005`,
+`medicalcoder_elixhauser_quan2005` and the summary from the
+`medicalcoder_pccc_v2.0` object.
+These data.frames can be the basis for useful summary tables which can be nicely
+formatted via packages like kableExtra [@r-kableExtra].
+
+
+```{r}
+#| label: summary-table-charlson
+#| echo: true
+#| results: "asis"
+x <- summary(medicalcoder_charlson_quan2005)[["conditions"]]
+kableExtra::kbl(
+  x = x[, c("condition_description", "count", "percent")],
+  format = "latex",
+  booktabs = TRUE
+) |>
+kableExtra::pack_rows("Conditions", 1, 17) |>
+kableExtra::pack_rows("Total Number of Conditions", 18, nrow(x))
+```
+
+```{r}
+#| label: old-stuff
+#| eval: false
 
 ################################################################################
 # save
-save(
-  medicalcoder_charlson_quan2005,
-  medicalcoder_charlson_quan2011,
-  medicalcoder_elixhauser_quan2005,
-  comorbidity_charlson_results,
-  comorbidity_elixhauser_results,
-  icdcomorbid_icd9_results,
-  multimorbidity_charlson_results,
-  missing_rheum_codes,
   file = "medicalcoder-vs.Rdata"
 )
 
@@ -780,6 +1309,12 @@ save(
 ```{r}
 #| label: sessioninfo
 sessionInfo()
+```
+
+```{r}
+#| label: same-image
+# saving the image to use some of the results in the manuscript body
+save.image(file = "medicalcoder-vs.Rdata")
 ```
 
 # References
