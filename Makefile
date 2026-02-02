@@ -20,3 +20,7 @@ figure1.svg figure1.png figure1.Rdata &: figure1-flag-method-example.R
 
 figure2.svg figure2.png figure2permutations.rds &: figure2-pcccv3-cumulative-flagging.R
 	$(RSCRIPTVANILLA) $<
+
+clean:
+	$(RM) -r medicalcoder-vs-other-r-packages_cache
+	$(RM) -r medicalcoder-vs-other-r-packages_files

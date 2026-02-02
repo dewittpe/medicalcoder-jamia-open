@@ -504,7 +504,7 @@ toc <- Sys.time()
 difftime(toc, tic)
 ```
 
-## Charlson
+### Charlson
 
 We now apply the Charlson comorbidity algorithm to the data
 
@@ -682,7 +682,7 @@ false_positives[(congestive_heart_failure), .N]
 DT[
   false_positives[(congestive_heart_failure)], on = "code_id"
   ][
-  , .SD, .SDcols = keep
+  , .(DX, congestive_heart_failure)
   ]
 ```
 
@@ -705,7 +705,8 @@ cat(
 
 And what about the cases where medicalcoder flags and icdcomorbid does not?
 ```{r}
-false_negatives <-
+#| label: icdcomorbid_false_negatives
+icdcomorbid_false_negatives <-
   merge(
     x = mdcrDT[patid %in% mdcr_v_icdcomorbid[congestive_heart_failure < chf, patid]],
     y = subset(
@@ -715,10 +716,10 @@ false_negatives <-
           ),
     by = c("code", "icdv", "dx")
   )
-str(false_negatives)
+str(icdcomorbid_false_negatives)
 
-unique(false_negatives[icdv == 9 & dx == 1, .(code)][["code"]])
-unique(false_negatives[icdv == 10 & dx == 1, .(code)][["code"]])
+unique(icdcomorbid_false_negatives[icdv == 9 & dx == 1, .(code)][["code"]])
+unique(icdcomorbid_false_negatives[icdv == 10 & dx == 1, .(code)][["code"]])
 ```
 
 These are all false negatives from icdcomorbid.
@@ -1288,20 +1289,6 @@ kableExtra::kbl(
 ) |>
 kableExtra::pack_rows("Conditions", 1, 17) |>
 kableExtra::pack_rows("Total Number of Conditions", 18, nrow(x))
-```
-
-```{r}
-#| label: old-stuff
-#| eval: false
-
-################################################################################
-# save
-  file = "medicalcoder-vs.Rdata"
-)
-
-################################################################################
-#                                 End of File                                  #
-################################################################################
 ```
 
 # Session Info

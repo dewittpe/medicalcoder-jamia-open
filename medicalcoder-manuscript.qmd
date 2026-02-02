@@ -323,8 +323,10 @@ ICD-10, or both.
 
 A verbose example of calling `medicalcoder::comorbidities()`, including default
 values, follows.  The example uses one of two example datasets provided by the
-package. `mdcr` is a data.frame with 4 columns: patient identifier (patid), ICD
-version (icdv), compact ICD code string (code), and an indicator for diagnostic
+package. `mdcr` is a data.frame with 4 columns: patient identifier (patid;
+`r length(unique(medicalcoder::mdcr$patid))` unique ids), ICD
+version (icdv; ICD-9 and ICD-10, some patid have both),
+compact ICD code string (code), and an indicator for diagnostic
 or procedure code (dx).
 
 ```{r}
@@ -607,7 +609,9 @@ Comparing medicalcoder to other R packages has been done (see supplements).
 medicalcoder has more features, more comorbidity methods, and greater
 flexibility than other packages. Notable alternatives at the time this
 manuscript was written are multimorbidity [@r-multimorbidity],
-icdcomorbid [@r-icdcomorbid], and comorbidity [@r-comorbidity].
+icdcomorbid [@r-icdcomorbid], and comorbidity [@r-comorbidity] for Charlson and
+Elixhauser comorbidities and the pccc [@dewitt2026pccc;@feinstein2018pccc]
+package for PCCC (version 2).
 
 ```{r}
 #| label: vs
@@ -617,49 +621,53 @@ load(file = "medicalcoder-vs.Rdata", envir = vs)
 ```
 
 The R package comorbidity[@r-comorbidity] is a widely referenced and downloaded
-package that can apply Charlson and Elixhauser (Quan 2005 and Quan 2011), along
-with a few other variants of comorbidity algorithms.
+package that can apply Charlson and Elixhauser (Quan 2005 and Quan 2011), and
+others.
 We compared `medicalcoder::comorbidities()` to `comorbidity::comorbidity()`
 using the `medicalcoder::mdcr` dataset.
-We found the flags and index scores were consistent between the two packages.
+We found the flags and index scores were consistent between the two packages
+(see supplement).
 
-The computation time required was different.  `comorbidity::comorbidity()`
-required
+For these two methods, the only notable differences between the two packages is
+that only one call to `medicalcoder::comorbidities()` for each comorbidity
+algorithm was needed.  For `comorbidity::comorbidity()`, two calls, one for each
+ICD version, was needed per comorbidity algorithm.  The additional call and
+aggregation of the results required more coding and execution time.
+
+`comorbidity::comorbidity()` required
 `r round(attr(vs$comorbidity_charlson_results, "tictoc"), 1)` seconds to apply Charlson, and
 `r round(attr(vs$comorbidity_elixhauser_results, "tictoc"), 1)` seconds to apply
 Elixhauser.  Compared to `medicalcoder::comorbidities()` taking
 `r round(attr(vs$medicalcoder_charlson_quan2005, "tictoc"), 2)` seconds to apply
-`charlson_quan2005`,
-`r round(attr(vs$medicalcoder_charlson_quan2011, "tictoc"), 2)`
-seconds to apply `charlson_quan2011`, and
+`charlson_quan2005`, and
 `r round(attr(vs$medicalcoder_elixhauser_quan2005, "tictoc"), 2)` seconds to apply
 `elixhauser_quan2005`.
-The difference in time required to
-apply the methods between `medicalcoder::comorbidities()` and
-`comorbidity::comorbidity()` is largely due to `comorbidity::comorbidity()`
-requiring two calls, one to apply ICD-9 codes, one for ICD-10 codes, aggregating
-the results, and then scoring them whereas `medicalcoder::comorbidities()`
-required only one call.
 
-The comparison between `medicalcoder::comorbidities()` and
-`icdcomorbid::icd9_to_comorbid()` [@r-icdcomorbid] was stopped due to computation
-time.
-`icdcomorbid::icd9_to_comorbid()` took
-`r round(attr(vs$icdcomorbid_icd9_results, "tictoc"), 1)` seconds to process
-`r nrow(vs$icdcomorbid_icd9_results)` patients from the `medicalcoder::mdcr` data
-sets and only using only ICD-9 codes.
-`medicalcoder::comorbidities()` took
-`r round(attr(vs$medicalcoder_charlson_quan2005, "tictoc"), 2)` seconds to
-process the `r length(unique(medicalcoder::mdcr[["patid"]]))`-patient dataset
-against ICD-9 and ICD-10 codes. Due to the several orders-of-magnitude
-difference in computation time, we did not compare results between
-`medicalcoder::comorbidities()` and `icdcomorbid::icd9_to_comorbid()`.
+The supplement provides additional detail on the comparisons between
+`medicalcoder::comorbidities()` and the packages icdcomorbid, and
+multimorbidity.  We found both icdcomorbid and multimorbidity had several false
+negative flags for Charlson comorbidities, examples: ICD-10 P29.0 should flag for
+congestive heart failure, but fails to do so in icdcomorbid and ICD-10 I27.81
+and I27.82 failled to flag for chronic pulmonary disease.  Additionally,
+icdcomorbid had false positives (P29.30), and multimorbidity returned lower and
+higher severity levels of conditions such as diabetes. (medicalcoder only
+returns the highest level, `comorbidity::comorbidity()` provides an option for
+end users to control the behavior).
 
-`multimorbidity::charlson()` [@r-multimorbidity] required
-`r round(attr(vs$multimorbidity_charlson_results, "tictoc"), 1)` seconds to apply
-the Charlson comorbidities to the `medicalcoder::mdcr` dataset. We noted several
-false negatives relative to the published definitions (details in the
-supplement).
+In addtion to the greater sensitivity and specificity,
+`medicalcoder::comorbidities()` is considerably faster that icdcomorbid,
+`r attr(vs$icdcomorbid_charlson_results, "tictoc")` seconds to apply Charlson,
+and multimorbidity,
+`r attr(vs$multimorbidity_charlson_results, "tictoc")` seconds.
+
+For the PCCC (version 2) comparison between `medicalcoder::comorbidities()`
+and `pccc::ccc()` showed a handful of false negatives for `pccc::ccc()` with
+respect to technology dependence and transplantation.  For the primary
+conditoins, the results between `medicalcoder::comorbidities()` with `method =
+"pccc_v2.0"` and `pccc::ccc()` are consistent.  Again,
+`medicalcoder::comorbidities()` is considerably faster than the competetor;
+`r round(attr(vs$medicalcoder_pccc_v2.0, "tictoc"), 2)` seconds vs
+`r round(attr(vs$pccc_results, "tictoc"), 1)` seconds, respectively.
 
 # Discussion
 
