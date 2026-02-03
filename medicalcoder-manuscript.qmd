@@ -276,19 +276,13 @@ suggested packages[^b].
 There are two conceptual groups of functions within medicalcoder: ICD utilities
 and comorbidity flagging tools.
 
-## ICD Utilities
-
 The internal ICD database is accessible via `medicalcoder::get_icd_codes()`,
 with optional descriptions and hierarchy. `medicalcoder::is_icd()` tests if a
 character string is a known ICD code while considering ICD version, type,
 source, year, and whether header codes can be considered valid. Both full and
 compact codes can be considered simultaneously, and warnings for ambiguous codes
-are optionally thrown.
-
-The `"icd"` vignette provides
-detailed usage examples for `medicalcoder::get_icd_codes()`,
-`medicalcoder::is_icd()`, and two more ICD utilities,
-`medicalcoder::lookup_icd_codes()` and `medicalcoder::icd_compact_to_full()`.
+are optionally thrown.  The `"icd"` vignette provides
+detailed usage and examples (see supplement).
 
 ```{r}
 #| label: get-icd-codes
