@@ -23,9 +23,6 @@
 #   run from repo root so outputs land alongside manuscript assets
 #
 ################################################################################
-library(data.table)
-library(medicalcoder)
-library(ggplot2)
 
 # 3 ICD-10 codes chosen to map to PCCC metabolic/respiratory categories
 codes <- c("H49.811", "J84.111", "Z96.41")
@@ -46,7 +43,7 @@ permutations[, plabel := paste(na.omit(code), collapse = ", "), by = .(permutati
 permutations[, plabel := paste0("Permutation ", permutation, ": ", plabel)]
 
 rtn <-
-  comorbidities(
+  medicalcoder::comorbidities(
     data = permutations,
     icd.codes = "code",
     id.vars = c("permutation", "plabel", "encounter_id"),
@@ -58,7 +55,7 @@ rtn <-
   )
 # reshape to long for plotting; include condition flags and summary fields
 rtn_long <-
-  melt(
+  data.table::melt(
     rtn,
     id.vars = c("permutation", "plabel", "encounter_id"),
     measure.vars =
@@ -79,9 +76,11 @@ rtn_long[value == 0 & variable == "num_cmrb", hicon := "0"]
 rtn_long[value == 1 & variable == "num_cmrb", hicon := "1"]
 rtn_long[value == 2 & variable == "num_cmrb", hicon := "2"]
 
-rtn_long[, cmrb := fcase(startsWith(as.character(variable), "metabolic"), "metabolic",
-                         startsWith(as.character(variable), "respiratory"), "respiratory",
-                         default = "")]
+rtn_long[, cmrb := data.table::fcase(
+                     startsWith(as.character(variable), "metabolic"), "metabolic",
+                     startsWith(as.character(variable), "respiratory"), "respiratory",
+                     default = "")
+  ]
 
 g <-
   ggplot2::ggplot(data = rtn_long) +
@@ -90,7 +89,7 @@ g <-
     mapping = ggplot2::aes(shape = faicon),
     size = 2
   ) +
-  scale_shape_manual(values = c("Not Flagged" = NULL, "Flagged" = 13)) +
+  ggplot2::scale_shape_manual(values = c("Not Flagged" = NULL, "Flagged" = 13)) +
   ggplot2::geom_text(
     data = subset(rtn_long, is.na(faicon)),
     mapping = ggplot2::aes(label = hicon),
@@ -105,8 +104,8 @@ g <-
   )
 
 # figure output sizes aligned with manuscript layout
-ggsave(plot = g, filename = "figure2.png", width = 9, height = 5)
-ggsave(plot = g, filename = "figure2.svg", width = 9, height = 5)
+ggplot2::ggsave(plot = g, filename = "figure2.png", width = 9, height = 5)
+ggplot2::ggsave(plot = g, filename = "figure2.svg", width = 9, height = 5)
 
 # save permutation data for reproducibility/debugging
 saveRDS(permutations, file = "figure2permutations.rds")
