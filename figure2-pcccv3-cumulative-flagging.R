@@ -1,14 +1,33 @@
 ################################################################################
 # file: figure2-pcccv3-cumulative-flagging.R
 #
-# objective: build a graphic to illustrate when condidtions are flagged for
-# method = pccc_v3.1 with flag.method = "cumulative"
+# objective:
+#
+#   build a graphic to illustrate when condidtions are flagged for method =
+#   pccc_v3.1 with flag.method = "cumulative"
+#
+# inputs:
+#
+#   none (uses hard-coded ICD-10 example codes)
+#
+# outputs:
+#
+#   figure2.png, figure2.svg, figure2permutations.rds
+#
+# dependencies:
+#
+#   data.table, medicalcoder, ggplot2
+#
+# Notes:
+#
+#   run from repo root so outputs land alongside manuscript assets
 #
 ################################################################################
 library(data.table)
 library(medicalcoder)
 library(ggplot2)
 
+# 3 ICD-10 codes chosen to map to PCCC metabolic/respiratory categories
 codes <- c("H49.811", "J84.111", "Z96.41")
 permutations <-
   data.table::data.table(
@@ -22,6 +41,7 @@ permutations <-
               NA, 3, NA, 1, NA, 2, NA,
               NA, 3, NA, 2, NA, 1, NA)]
   )
+# label permutations by code order (ignoring NA encounters)
 permutations[, plabel := paste(na.omit(code), collapse = ", "), by = .(permutation)]
 permutations[, plabel := paste0("Permutation ", permutation, ": ", plabel)]
 
@@ -36,6 +56,7 @@ rtn <-
     flag.method = "cumulative",
     poa = 1
   )
+# reshape to long for plotting; include condition flags and summary fields
 rtn_long <-
   melt(
     rtn,
@@ -51,6 +72,7 @@ rtn_long <-
   )
 rtn_long[, encounter_id := factor(encounter_id, rev(sort(unique(encounter_id))))]
 
+# use shapes for flags; overlay numbers for num_cmrb
 rtn_long[value == 1 & variable != "num_cmrb", faicon := factor(value, 0:1, c("Not Flagged", "Flagged"))]
 rtn_long[, hicon := ""]
 rtn_long[value == 0 & variable == "num_cmrb", hicon := "0"]
@@ -82,9 +104,11 @@ g <-
     axis.title.x = ggplot2::element_blank()
   )
 
+# figure output sizes aligned with manuscript layout
 ggsave(plot = g, filename = "figure2.png", width = 9, height = 5)
 ggsave(plot = g, filename = "figure2.svg", width = 9, height = 5)
 
+# save permutation data for reproducibility/debugging
 saveRDS(permutations, file = "figure2permutations.rds")
 
 ################################################################################
