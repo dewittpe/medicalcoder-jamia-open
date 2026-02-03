@@ -1,5 +1,5 @@
 ################################################################################
-# file: flag-method-example.R
+# file: figure1-flag-method-example.R
 #
 # build a table/figure showing when a condition is flagged based on present on
 # admission codes and comorbidity algorithm

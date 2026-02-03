@@ -1,3 +1,10 @@
+################################################################################
+# file: figure2-pcccv3-cumulative-flagging.R
+#
+# objective: build a graphic to illustrate when condidtions are flagged for
+# method = pccc_v3.1 with flag.method = "cumulative"
+#
+################################################################################
 library(data.table)
 library(medicalcoder)
 library(ggplot2)

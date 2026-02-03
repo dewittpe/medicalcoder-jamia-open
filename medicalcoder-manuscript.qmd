@@ -46,14 +46,17 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 2,272 / 2000 (excluding tables and R code chunks),
-2,600 (including R chunks, excluding tables)
+[**Word count:**]{.underline} 1,992 / 2000 (including R chunks, excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
 [**Figures:**]{.underline} 3 / 3
 
 [**Supplementary material:**]{.underline}
+* figure1-flag-method-example.R: R script for building Figure 1
+* figure2-pcccv3-cumulative-flagging.R: R script for building Figure 2
+* medicalcoder-vs-others-r-packages.pdf: detailed comparisons between
+  _medicalcoder_ and alternative R packages.
 
 [**Short running title**]{.underline}: medicalcoder: R package for ICD codes and Comorbidities with longitudinal data
 
@@ -122,12 +125,12 @@ handle only one or two algorithms, work with either ICD-9 or ICD-10 (but not
 both together), and do not track health conditions across multiple hospital
 visits. This can lead to missed or inconsistent results.
 
-We created medicalcoder, an R package that solves these problems. It includes a
-complete database of ICD-9 and ICD-10 codes and provides a single, easy-to-use
+We created _medicalcoder_, an R package that solves these problems. It includes
+a complete database of ICD-9 and ICD-10 codes and provides a single, easy-to-use
 function to apply many comorbidity algorithms. The package can recognize both
 full and compact ICD codes, use present-on-admission flags, identify primary
-diagnoses, and follow patients across multiple encounters to avoid
-missing conditions that appear earlier in their history.
+diagnoses, and follow patients across multiple encounters to avoid missing
+conditions that appear earlier in their history.
 
 _medicalcoder_ is fast, works with base R, and has been thoroughly tested against
 published methods. It helps researchers apply comorbidity algorithms more
@@ -171,23 +174,21 @@ We present the R package _medicalcoder_ to fill this need.
 
 # Objective
 
-Develop an R package with a comprehensive internal ICD database and the ability
-to apply multiple comorbidity algorithms to a dataset. The assessment of
-comorbidities should handle ICD-9 and ICD-10 simultaneously, accept full and
-compact codes, incorporate POA flags and primary diagnosis indicators, and
-support longitudinal assessment across patient encounters.
-
-The package must have no required dependencies beyond base R. When available, it
-should dynamically use _dplyr_ [@r-dplyr] or _data.table_ [@r-data.table] backends
-to improve performance without requiring them for installation or use.
+Develop a fully self-contained R package with a comprehensive internal ICD
+database capable of applying multiple comorbidity algorithms to clinical
+datasets. The package should support simultaneous ICD-9 and ICD-10 coding,
+accept full and compact ICD codes, incorporate present-on-admission and primary
+diagnosis indicators, and enable longitudinal comorbidity assessment across
+patient encounters.
 
 # Materials and Methods
 
-_medicalcoder_ has minimal dependencies. No namespaces are imported; R &geq; 3.5.0
-is the only dependency due to a change in data serialization[^a]. Several
-packages are suggested for enhanced performance (_data.table_ [@r-data.table] and
-_dplyr_ [@r-dplyr]) and for testing and documentation, but suggested packages are
-not required for installation or use.
+_medicalcoder_ was designed to be fully self-contained and deployable in
+restricted computing environments. No external namespaces are imported; R &geq;
+3.5.0 is the only required dependency, reflecting changes in data serialization
+introduced in that version[^a]. Several packages are suggested for enhanced
+performance (data.table [@r-data.table] and dplyr [@r-dplyr]) and for testing
+and documentation, but are not required for installation or use.
 
 [^a]: https://cran.r-project.org/src/base/NEWS.3#:~:text=R%20has%20new,to%20version%203.5.0
 
@@ -284,32 +285,6 @@ compact codes can be considered simultaneously, and warnings for ambiguous codes
 are optionally thrown.  The `"icd"` vignette provides
 detailed usage and examples (see supplement).
 
-```{r}
-#| label: get-icd-codes
-#| include: false
-# omit from manuscript to save space and keep the focus on the comorbidities
-str(medicalcoder::get_icd_codes())
-# icdv:
-#   integer 9 or 10 for ICD-9 or ICD-10
-# dx:
-#   diagnostic code (1); procedure code (0)
-# full_code:
-#   ICD code string with applicable dot, eg., D71.1
-# code:
-#   ICD code string without applicable dot, eg., D711
-# src:
-#   character source information from the cdc, cms, or who
-# known_start, known_end:
-#   first and last year that the code was known to be in
-#   the source
-# assignable_start, assignable_end:
-#   first and last year that the code was known to be the
-#   most granular code from the source
-```
-
-
-## Comorbidities
-
 A single function, `medicalcoder::comorbidities()`, is the interface for
 applying any of `r length(medicalcoder:::comorbidities_methods())` comorbidity
 algorithms implemented by _medicalcoder_ (Table 1). The input data are expected
@@ -376,57 +351,16 @@ issued to alert the user to the override. The same pattern is applied
 consistently across diagnostic and procedure indicators, ICD version,
 present-on-admission status, and primary diagnosis flags.
 
-```{r}
-str(elixhauser_quan2005_comorbidities, max.level = 0L)
-```
+`medicalcoder::comorbidities()` returns a data.frame with addition metadata and
+class consistent with the input.  The data.frame has column(s) for the `id.vars`
+and an indicator column each of the relevant comorbidities.  All returned
+data.frames include columns `num_cmrb` for the number of comorbidities flagged
+for the `id.vars` and `cmrb_flag`, an indicator column for at least one
+comorbidity.
 
-The return from `medicalcoder::comorbidities()` is a data.frame with additional
-metadata.  The data.frame has column(s) for the `id.vars` and an indicator
-column each of the relevant comorbidities.  All returned data.frames include
-columns `num_cmrb` for the number of comorbidities flagged for the `id.vars` and
-`cmrb_flag`, an indicator column for at least one comorbidity.
-
-The combination of `poa.var` or `poa` and `flag.method` affects when a
-condition/comorbidity is flagged (Figure 1). For example, below is the record
-for one patient with six encounters.  ICD-10 diagnostic codes C78.4 (mapping to
-cancer in Charlson, Elixhauser, and PCCC), and I50.40 (mapping to cardiovascular
-disease in Charlson, Elixhauser, and PCCC), appear on encounters 2, 3, and 5.
-The POA status of the codes are dynamic as well.
-
-```{r}
-#| label: flag-method-example
-#| include: false
-# this will load the object record and args into the .Globalenv
-load("figure1.Rdata")
-```
-
-```{r}
-#| label: example-record
-record
-```
-
-The following call is an example of the `r nrow(args)`  calls needed to
-generate the flags shown in Figure 1. The most important detail to take away is
-that the `id.vars` have the name of the sortable encounter id listed last.  The
-assumption, when `flag.method = "cumulative"`, is that the
-`data[[tail(id.vars, 1)]]` is a sortable variable which puts encounters in
-chronological order within the other `id.vars`.
-
-```{r}
-#| label: example-call-for-flag-example
-#| eval: false
-medicalcoder::comorbidities(
-  data = record,
-  id.vars = c("patid", "encid"),
-  icdv = 10L,
-  dx = 1L,
-  poa =     # ... three options: <0, 1, NULL>
-  poa.var = # ... NULL when poa = 0 or 1, else "poa"
-  method =  # ... charlson_quan2005, elixhauser_ahrq2025, pccc_v3.1
-  primarydx = 0L,
-  flag.method = # ... "current", "cumulative"
-)
-```
+Flagging comorbidities depends on the combination of `flag.method` and `poa.var`
+or `poa`. An example patient record with six encounters and varying POA status
+is used to illustrate encounter and cumulative flagging (Figure 1).
 
 ```{r}
 #| label: load-figure2permutations
@@ -435,7 +369,7 @@ figure2permutations <- readRDS("figure2permutations.rds")
 ```
 
 The longitudinal methods in _medicalcoder_ are critical for PCCC v3
-[@feinstein2024pediatric]. For these conditions, some ICD codes are classified
+[@feinstein2024pediatric] were some some ICD codes are classified
 as technology dependent. A technology-dependent code flags a condition only if
 at least one non-technology-dependent code is also present. For example,
 consider three ICD-10 codes: H49.811 (non-technology-dependent metabolic),
@@ -458,8 +392,8 @@ and 6.
 ### Testing
 
 Within the testing suite there are tests for ensuring consistency between
-`method = "pccc_v2.0"` and the R package pccc[@r-pccc], and between
-`method = elixhauser_ahrq20XX` and the published SAS code from AHRQ[@ahrq2025].
+`method = "pccc_v2.0"` and the R package _pccc_ [@r-pccc;@feinstein2018pccc],
+and between `method = elixhauser_ahrq20XX` and the published SAS code from AHRQ [@ahrq2025].
 As part of the website[^d] build, consistency between
 `method = charlson_quan2005` and the SQL code provided by
 MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is verified.
@@ -538,22 +472,11 @@ bnch <-
 bnchmat <- as.matrix(bnch[, .(data.frame, tibble, data.table)])
 ```
 
-Benchmarking performance of `medicalcoder::comorbidities()` was done by
-resampling the MIMIC-IV demo dataset [@PhysioNet-mimic-iv-demo-2.2] and applying the
-Charlson (Quan 2005), Elixhauser (Quan 2005), and PCCC v3.1 with and
-without subconditions, to the data on a
-computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
-CPUs, and 2 TB RAM. All processes limited to a single thread.
-
-_medicalcoder_ has been designed to work with just base R.  Any system with R
-&geq; 3.5.0 can install and use medicalcoder.
-That said, _medicalcoder_ suggests the use of data.frame extensions tibbles or
-data.tables. When the input data class to `medicalcoder::comorbidities()` is a
-tibble and the _dplyr_ namespace is available, or when the input is a data.table
-and the _data.table_ namespace is available, then guarded S3 methods apply the
-appropriate data-manipulation tools.  We observed a best case where the input
-data class of a data.table required only `r best_case_benchmark$relative_time`
-of the time to compute compared to input data class of a data.frame.
+Benchmarking `medicalcoder::comorbidities()` was done by resampling the MIMIC-IV
+demo dataset [@PhysioNet-mimic-iv-demo-2.2] and applying the Charlson (Quan
+2005), Elixhauser (Quan 2005), and PCCC v3.1 with and without subconditions, to
+the data on a computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel
+Xeon Gold 6416H CPUs, and 2 TB RAM. All processes limited to a single thread.
 
 **Table 2:** Benchmarking `medicalcoder::comorbidities()` by data class and
 flagging method based on a resampling the MIMIC-IV demonstration dataset
@@ -563,7 +486,10 @@ flagging method based on a resampling the MIMIC-IV demonstration dataset
 computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
 CPUs, and 2 TB RAM. All processes limited to a single thread.  Figure 3
 illustrates the expected time, relative time, and memory use for other
-encounter sizes.
+encounter sizes. Extensive details on the benchmarking are on GitHub[^c].
+
+[^c]: https://github.com/dewittpe/medicalcoder/tree/main/benchmarking
+
 
 |                                                        | data.frame         | tibble             | data.table         |
 | :----------                                            | ----:              | ----:              | ----:              |
@@ -604,20 +530,27 @@ encounter sizes.
 | &nbsp;&nbsp;&nbsp;&nbsp; Time (relative to data.frame) | `r bnchmat[23, 1]` | `r bnchmat[23, 2]` | `r bnchmat[23, 3]` |
 | &nbsp;&nbsp;&nbsp;&nbsp; Memory (GiB)                  | `r bnchmat[24, 1]` | `r bnchmat[24, 2]` | `r bnchmat[24, 3]` |
 
-
-Extensive details on the benchmarking are on GitHub[^c].
-
-[^c]: https://github.com/dewittpe/medicalcoder/tree/main/benchmarking
-
 ### Comparing to Other R packages
 
+Comparisons with existing R packages, including
+_multimorbidity_ [@r-multimorbidity],
+_icdcomorbid_ [@r-icdcomorbid], _comorbidity_ [@r-comorbidity], and 
+_pccc_ [@dewitt2026pccc;@feinstein2018pccc], showed that _medicalcoder_ produces
+results consistent with published reference implementations while requiring
+fewer preprocessing steps and method calls.  In several cases, alternative
+packages exhibited false negative or false positive flags due to differences in
+ICD handling.  Detailed comparisons, including ICD-code-level examples and
+performance measurements, are provided in the supplements.
+
+<!--
 Comparing _medicalcoder_ to other R packages has been done (see supplements).
 _medicalcoder_ has more features, more comorbidity methods, and greater
 flexibility than other packages. Notable alternatives at the time this
-manuscript was written are multimorbidity [@r-multimorbidity],
-icdcomorbid [@r-icdcomorbid], and comorbidity [@r-comorbidity] for Charlson and
-Elixhauser comorbidities and the pccc [@dewitt2026pccc;@feinstein2018pccc]
+manuscript was written are _multimorbidity_ [@r-multimorbidity],
+_icdcomorbid_ [@r-icdcomorbid], and _comorbidity_ [@r-comorbidity] for Charlson and
+Elixhauser comorbidities and the _pccc_ [@dewitt2026pccc;@feinstein2018pccc]
 package for PCCC (version 2).
+-->
 
 ```{r}
 #| label: vs
@@ -626,7 +559,8 @@ vs <- new.env()
 load(file = "medicalcoder-vs.Rdata", envir = vs)
 ```
 
-The R package comorbidity[@r-comorbidity] is a widely referenced and downloaded
+<!--
+The R package _comorbidity_[@r-comorbidity] is a widely referenced and downloaded
 package that can apply Charlson and Elixhauser (Quan 2005 and Quan 2011), and
 others.
 We compared `medicalcoder::comorbidities()` to `comorbidity::comorbidity()`
@@ -650,20 +584,20 @@ Elixhauser.  Compared to `medicalcoder::comorbidities()` taking
 `elixhauser_quan2005`.
 
 The supplement provides additional detail on the comparisons between
-`medicalcoder::comorbidities()` and the packages icdcomorbid, and
-multimorbidity.  We found both icdcomorbid and multimorbidity had several false
+`medicalcoder::comorbidities()` and the packages _icdcomorbid_, and
+_multimorbidity._  We found both _icdcomorbid_ and _multimorbidity_ had several false
 negative flags for Charlson comorbidities, examples: ICD-10 P29.0 should flag for
-congestive heart failure, but fails to do so in icdcomorbid and ICD-10 I27.81
+congestive heart failure, but fails to do so in _icdcomorbid_ and ICD-10 I27.81
 and I27.82 failed to flag for chronic pulmonary disease.  Additionally,
-icdcomorbid had false positives (P29.30), and multimorbidity returned lower and
+_icdcomorbid_ had false positives (P29.30), and _multimorbidity_ returned lower and
 higher severity levels of conditions such as diabetes. (_medicalcoder_ only
 returns the highest level, `comorbidity::comorbidity()` provides an option for
 end users to control the behavior).
 
 In addition to the greater sensitivity and specificity,
-`medicalcoder::comorbidities()` is considerably faster that icdcomorbid,
+`medicalcoder::comorbidities()` is considerably faster that _icdcomorbid_,
 `r attr(vs$icdcomorbid_charlson_results, "tictoc")` seconds to apply Charlson,
-and multimorbidity,
+and _multimorbidity_,
 `r attr(vs$multimorbidity_charlson_results, "tictoc")` seconds.
 
 For the PCCC (version 2) comparison between `medicalcoder::comorbidities()`
@@ -674,27 +608,35 @@ conditions, the results between `medicalcoder::comorbidities()` with `method =
 `medicalcoder::comorbidities()` is considerably faster than the competitor;
 `r round(attr(vs$medicalcoder_pccc_v2.0, "tictoc"), 2)` seconds vs
 `r round(attr(vs$pccc_results, "tictoc"), 1)` seconds, respectively.
+-->
 
 # Discussion
 
-_medicalcoder_ was initially developed to support implementation of PCCC, which requires nuanced handling of
-technology dependence and prior clinical history. A central design requirement
-was that the package be fully self-contained and deployable in restricted
-computing environments, including systems with limited internet access or
-tightly controlled software installations. Relying only on base R ensures that
-_medicalcoder_ can be installed and used wherever R &geq; 3.5.0 is available,
-addressing a common but under-discussed barrier to reproducible clinical
-research.
+_medicalcoder_ was initially developed to support implementation of Pediatric
+Complex Chronic Conditions (PCCC) versions 3 [@feinstein2024pediatric] and 2
+[@feudtner2014pediatric]. During this work, it became clear that accurate and
+reproducible PCCC classification required access to a comprehensive,
+version-aware ICD database, which was subsequently developed and incorporated
+into the package. Designing a general framework to support multiple PCCC
+versions naturally enabled extension to additional comorbidity algorithms,
+including Charlson and Elixhauser.
+
+A primary design requirement was that the package be fully self-contained and
+deployable in restricted computing environments, including systems with limited
+internet access or tightly controlled software installations. Relying only on
+base R ensures that _medicalcoder_ can be installed and used wherever R &geq;
+3.5.0 is available, addressing a common but under-discussed barrier to
+reproducible clinical research.
 
 Beyond deployment considerations, _medicalcoder_ addresses a substantive
 methodological gap in existing comorbidity software: the lack of support for
 longitudinal comorbidity assessment. Most available implementations operate
 strictly at the encounter level, implicitly assuming that comorbid conditions
-are either repeatedly coded or irrelevant once absent from the current record.
-As demonstrated in Figures 1 and 2, this assumption can lead to systematic
-under-ascertainment of comorbidities, particularly for conditions governed by
-POA rules or technology-dependent classification criteria. By explicitly
-tracking diagnostic history across encounters, _medicalcoder_ enables
+are either repeatedly coded or clinically irrelevant once absent from the
+current record. As demonstrated in Figures 1 and 2, this assumption can lead to
+systematic under-ascertainment of comorbidities, particularly for conditions
+governed by POA rules or technology-dependent classification criteria. By
+explicitly tracking diagnostic history across encounters, _medicalcoder_ enables
 comorbidity flagging that more closely reflects clinical reality.
 
 The unified interface provided by _medicalcoder_ further reduces analytic
@@ -709,15 +651,15 @@ demonstrates that _medicalcoder_ produces results consistent with established
 algorithms while offering additional flexibility. In several comparisons,
 alternative R packages exhibited false negative or false positive flags,
 underscoring that implementation details materially affect comorbidity
-classification. Performance benchmarking shows that _medicalcoder_ scales
-efficiently to large datasets, with substantial reductions in computation time
-and memory usage when optional backends such as _data.table_ or _dplyr_ are
+classification. Performance benchmarking further shows that _medicalcoder_
+scales efficiently to large datasets, with substantial reductions in computation
+time and memory usage when optional backends such as _data.table_ or _dplyr_ are
 available, despite not being required dependencies.
 
 To our knowledge, _medicalcoder_ is the only available R package that jointly
 supports multiple comorbidity algorithms, mixed ICD versions,
 present-on-admission logic, and cumulative longitudinal flagging within a
-single, reproducible framework. These capabilities enable researchers to more
+single, reproducible framework. These capabilities enable researchers to
 accurately characterize patient complexity and to systematically evaluate how
 different comorbidity definitions influence analytic results.
 
@@ -762,7 +704,7 @@ in designing the hex-sticker logo for medicalcoder.
 
 # Figures {.unnumbered}
 
-**Figure 1:** 
+**Figure 1:**
 Flagging cancer and cardiovascular disease by comorbidity method,
 present-on-admission (POA) flagging, and flag method. Consider a patient record
 with six encounters. ICD-10 diagnostic code C78.4 (mapping to cancer in
@@ -778,7 +720,7 @@ when POA status varies across encounters. `flag.method = "current"` considers
 only codes and POA status on the specific encounter, whereas `flag.method =
 "cumulative"` propagates conditions identified in prior encounters.
 
-**Figure 2:** 
+**Figure 2:**
 Flagging of metabolic and respiratory conditions via Pediatric Complex Chronic
 Conditions, version 3, for an example patient with ICD-10 codes: H49.811
 (non-technology-dependent metabolic), J84.111 (non-technology-dependent
