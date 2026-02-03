@@ -65,42 +65,34 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
 # Abstract {.unnumbered}
 
-Word count: 194 / 150 <!-- Count from MS Word -->
+Word count: 142 / 150 <!-- Count from MS Word; omit section titles -->
 
 **Objectives**
 
-Develop a self-contained R package with an internal ICD database and utilities
-to apply multiple comorbidity algorithms while accounting for
-ICD version and type, full and compact codes, present-on-admission status,
-primary diagnoses, and longitudinal patient histories.
+Comorbidity algorithms derived from International Classification of Diseases
+(ICD) codes are central to risk adjustment and cohort characterization, yet
+existing software implementations are fragmented, inconsistently handle mixed
+ICD-9 and ICD-10 data, and typically ignore longitudinal patient histories.
+We present _medicalcoder_ to address these limitations.
 
 **Materials and Methods**
-
-We created medicalcoder, an R package with a comprehensive ICD-9 and ICD-10
-diagnostic and procedure code database with
+We developed _medicalcoder_, a self-contained R package with an internal ICD
+database and a unified interface for applying
 `r length(medicalcoder:::comorbidities_methods())` variants of the Charlson,
-Elixhauser, and Pediatric Complex Chronic Conditions algorithms. A
-single function applies these methods with
-support for encounter-level and cumulative longitudinal flagging, optional present-on-admission
-and primary diagnosis indicators, and mixed ICD versions and code types.
-Extensive testing ensures consistency with published SAS, SQL, and R reference
-implementations.
+Elixhauser, and Pediatric Complex Chronic Conditions algorithms. The package
+supports full and compact ICD codes, mixed ICD versions, present-on-admission
+and primary diagnosis indicators, and both encounter-level and cumulative
+longitudinal flagging.
 
 **Results**
-
-medicalcoder applies `r length(medicalcoder:::comorbidities_methods())`
-comorbidity variants across mixed ICD‑9/ICD‑10 datasets and supports
-longitudinal flagging with present-on-admission/primary‑diagnosis handling.
-Outputs are consistent with published reference implementations.  medicalcoder
-can be installed an used on any version of R >= 3.5.0 with no other
-dependencies or imports.  When input data is classed as a tibble of data.table,
-considerable computational performance (as much as 90% reduction in expected
-computation time) is observed due to guarded S3 method calls.
+Outputs are consistent with published SAS, SQL, and R reference implementations.
+_medicalcoder_ only depends on R &geq; 3.5.0 while dynamically leveraging
+_data.table_ or _dplyr_ when available, yielding substantial performance
+improvements.
 
 **Conclusions**
-
-medicalcoder provides a reproducible, efficient, and comprehensive framework for
-applying comorbidity algorithms to modern longitudinal clinical datasets.
+medicalcoder provides a reproducible, efficient framework for accurate
+comorbidity assessment in modern longitudinal clinical datasets.
 
 {{< pagebreak >}}
 
@@ -539,8 +531,8 @@ without subconditions, to the data on a
 computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
 CPUs, and 2 TB RAM. All processes limited to a single thread.
 
-medicalcoder has been designed to work with just base R.  Any system with R >=
-3.5.0 can install and use medicalcoder.
+medicalcoder has been designed to work with just base R.  Any system with R
+&geq; 3.5.0 can install and use medicalcoder.
 That said, medicalcoder suggests the use of data.frame extensions tibbles or
 data.tables. When the input data class to `medicalcoder::comorbidities()` is a
 tibble and the dplyr namespace is available, or when the input is a data.table
