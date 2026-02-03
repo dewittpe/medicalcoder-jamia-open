@@ -648,13 +648,13 @@ The supplement provides additional detail on the comparisons between
 multimorbidity.  We found both icdcomorbid and multimorbidity had several false
 negative flags for Charlson comorbidities, examples: ICD-10 P29.0 should flag for
 congestive heart failure, but fails to do so in icdcomorbid and ICD-10 I27.81
-and I27.82 failled to flag for chronic pulmonary disease.  Additionally,
+and I27.82 failed to flag for chronic pulmonary disease.  Additionally,
 icdcomorbid had false positives (P29.30), and multimorbidity returned lower and
 higher severity levels of conditions such as diabetes. (medicalcoder only
 returns the highest level, `comorbidity::comorbidity()` provides an option for
 end users to control the behavior).
 
-In addtion to the greater sensitivity and specificity,
+In addition to the greater sensitivity and specificity,
 `medicalcoder::comorbidities()` is considerably faster that icdcomorbid,
 `r attr(vs$icdcomorbid_charlson_results, "tictoc")` seconds to apply Charlson,
 and multimorbidity,
@@ -663,9 +663,9 @@ and multimorbidity,
 For the PCCC (version 2) comparison between `medicalcoder::comorbidities()`
 and `pccc::ccc()` showed a handful of false negatives for `pccc::ccc()` with
 respect to technology dependence and transplantation.  For the primary
-conditoins, the results between `medicalcoder::comorbidities()` with `method =
+conditions, the results between `medicalcoder::comorbidities()` with `method =
 "pccc_v2.0"` and `pccc::ccc()` are consistent.  Again,
-`medicalcoder::comorbidities()` is considerably faster than the competetor;
+`medicalcoder::comorbidities()` is considerably faster than the competitor;
 `r round(attr(vs$medicalcoder_pccc_v2.0, "tictoc"), 2)` seconds vs
 `r round(attr(vs$pccc_results, "tictoc"), 1)` seconds, respectively.
 
@@ -738,21 +738,22 @@ in designing the hex-sticker logo for medicalcoder.
 # Figures {.unnumbered}
 
 **Figure 1:** Flagging cancer and cardiovascular disease by comorbidity method,
-present on admission (POA) flagging, and flag method.  Consider a patient record
+present-on-admission (POA) flagging, and flag method.  Consider a patient record
 with six encounters.  ICD-10 diagnostic code C78.4 (mapping to cancer in
-Charlson, Elixhauser, and PCCC) is reported on encounter 2 as not present on
-admission (POA), and on encounter 5 as POA.  Additionally, ICD-10 diagnostic
-code I50.40 (mapping to cardiovascular disease (CVD) or congestive heart
-failure) is reported as POA on encounter 3 and not-POA on encounter 5.  This
-figure illustrates when cancer and when CVD are flagged by the different
-comorbidity algorithms and by how POA is handled.  `poa = 0` considers all
-codes to be not-POA, `poa = 1` considers all codes to be POA, and `poa.var =
-'poa'` uses a dynamic, code-specific flag in the input data to determine the
-POA status.  The flag method `current` only considers the codes and POA status
-on the specific encounter, whereas `cumulative` considers if the code has been
-reported previously, hence the flagging of both conditions on encounter 4 under
-all comorbidity algorithms under `flag.method = 'cumulative'` as the codes from
-encounters 2 and 3 are considered in the history for encounter 4.
+Charlson, Elixhauser, and Pediatrics Complex Chronic Conditions (PCCC)) is
+reported on encounter 2 as not present on admission (POA), and on encounter 5 as
+POA.  Additionally, ICD-10 diagnostic code I50.40 (mapping to cardiovascular
+disease (CVD) or congestive heart failure) is reported as POA on encounter 3 and
+not-POA on encounter 5.  This figure illustrates when cancer and when CVD are
+flagged by the different comorbidity algorithms and by how POA is handled.  `poa
+= 0` considers all codes to be not-POA, `poa = 1` considers all codes to be POA,
+and `poa.var = 'poa'` uses a dynamic, code-specific flag in the input data to
+determine the POA status.  The flag method `current` only considers the codes
+and POA status on the specific encounter, whereas `cumulative` considers if the
+code has been reported previously, hence the flagging of both conditions on
+encounter 4 under all comorbidity algorithms under `flag.method = "cumulative"`
+as the codes from encounters 2 and 3 are considered in the history for encounter
+4.
 
 **Figure 2:** Flagging of metabolic and respiratory conditions via the Pediatric
 Complex Chronic Conditions v3 [@feinstein2024pediatric] for an example patient
@@ -774,7 +775,7 @@ exists in the record.
 v3.1 [@feinstein2024pediatric] were applied to simulated datasets using both
 `current` and `cumulative` flag methods and three input data classes
 (data.frame, tibble, data.table). The benchmarking was performed on a
-computational server runing Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
+computational server running Ubuntu 24.04.3 LTS, R 4.5.1, Intel Xeon Gold 6416H
 CPUs, and 2 TB RAM. All processes limited to a single thread. While medicalcoder
 does not import any namespaces, guarded S3 method dispatching will use
 data.table [@r-data.table] or dplyr [@r-dplyr] native methods for performance
