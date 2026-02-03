@@ -348,6 +348,7 @@ for (i in seq_len(nrow(charlson_columns))) {
 
 The only remaining non-id columns are all from `medicalcoder::comorbidities()`.
 ```{r}
+#| label: charlson-delta-summary
 stopifnot(
   identical(
     names(charlson_delta),
@@ -369,6 +370,7 @@ When comparing the results between `medicalcoder::comorbidities()` and
 `comorbidity::comorbidity()` for Elixhauser we again find consistent results.
 
 ```{r}
+#| label: elixhauser-delta-compare
 elixhauser_delta <-
   merge(
     x = comorbidity_elixhauser_results,
@@ -588,6 +590,7 @@ mdcr_v_icdcomorbid <-
 
 Let's compare the results starting the AIDS/HIV.
 ```{r}
+#| label: icdcomorbid-aidshiv-compare
 identical(
   mdcr_v_icdcomorbid[["aidshiv"]],  # medicalcoder::comorbidities()
   mdcr_v_icdcomorbid[["aids_hiv"]]  # icdcomorbid
@@ -607,6 +610,7 @@ which should match any ICD-9 code under the three digit code 042, 043, or 044.
 has in its internal database.)
 
 ```{r}
+#| label: icdcomorbid-aidshiv-codes
 merge(
   x = mdcrDT[patid %in% mdcr_v_icdcomorbid[aidshiv != aids_hiv, patid]],
   y = subset(
@@ -619,12 +623,14 @@ merge(
 ```
 
 ```{r}
+#| label: icdcomorbid-drop-aidshiv
 mdcr_v_icdcomorbid[, aidshiv := NULL]
 mdcr_v_icdcomorbid[, aids_hiv := NULL]
 ```
 
 Next, congestive heart failure.
 ```{r}
+#| label: icdcomorbid-chf-compare
 identical(
   mdcr_v_icdcomorbid[["chf"]],  # medicalcoder::comorbidities()
   mdcr_v_icdcomorbid[["congestive_heart_failure"]]  # icdcomorbid
@@ -639,6 +645,7 @@ mdcr_v_icdcomorbid[, .N, keyby = .(chf, congestive_heart_failure)]
 
 Focusing on the differences:
 ```{r}
+#| label: icdcomorbid-chf-diff-count
 mdcr_v_icdcomorbid[
   !Vectorize(identical)(chf, congestive_heart_failure),
   .N,
@@ -651,6 +658,7 @@ flagged. It should be noted that not all cases of `num_cmrb == 0` have missing
 values for `congestive_heart_failure`.
 
 ```{r}
+#| label: icdcomorbid-chf-missing
 mdcr_v_icdcomorbid[num_cmrb == 0, .N]
 mdcr_v_icdcomorbid[is.na(congestive_heart_failure), all(num_cmrb == 0)]
 ```
@@ -658,6 +666,7 @@ mdcr_v_icdcomorbid[is.na(congestive_heart_failure), all(num_cmrb == 0)]
 What about the cases where icdcomorbid flagged congestive_heart_failure and
 medicalcoder did not
 ```{r}
+#| label: icdcomorbid-chf-false-positives
 # where does icdcomorbid flag that medicalcoder does not?
 DT <-
   mdcrDT[patid %in% mdcr_v_icdcomorbid[congestive_heart_failure > chf, patid]]
@@ -695,6 +704,7 @@ DT[
   icdcomorbid JSON files.
 
 ```{r}
+#| label: icdcomorbid-json-snippet
 cat(
   scan(
     system.file(package = "icdcomorbid", "comorbidity_mappings", "charlson10.json"),
@@ -830,6 +840,7 @@ attr(multimorbidity_charlson_results, "tictoc") # seconds
 ```
 
 ```{r}
+#| label: multimorbidity-coerce-merge
 # the return form multimorbidity have numeric columns for the indicators not
 # integers
 for (j in names(multimorbidity_charlson_results)) {
@@ -848,6 +859,7 @@ mdcr_v_multimorbidity <-
 
 Some of the condition flags are the same:
 ```{r}
+#| label: multimorbidity-matching-flags
 stopifnot(
   identical(
     mdcr_v_multimorbidity[["aidshiv"]],     # medicalcoder
@@ -881,6 +893,7 @@ Other conditions have differences in the flags between
 
 For example, dementia was not flagged by `multimorbidity::charlson().
 ```{r}
+#| label: multimorbidity-dementia-diff
 mdcr_v_multimorbidity[, .N, keyby = .(dem, charlson_dementia)]
 
 dem_fn <-
@@ -905,6 +918,7 @@ flag, this is a flag negative from `multimorbidity::charlson()`.
 
 Chronic pulmonary disease (COPD), has differences too.
 ```{r}
+#| label: multimorbidity-copd-diff
 mdcr_v_multimorbidity[, .N, keyby = .(copd, charlson_chronic_pulm)]
 copd_fn <-
   merge(
@@ -939,6 +953,7 @@ Diabetes has two levels, complicated and uncomplicated.  The results between
 `medicalcoder::comorbidities()` and `multimorbidity::charlson()` are consistent
 for complicated diabetes, but not the uncomplicated.
 ```{r}
+#| label: multimorbidity-diabetes-compare
 identical(
   mdcr_v_multimorbidity[["dmc"]],            # medicalcoder
   mdcr_v_multimorbidity[["charlson_diab_c"]] # multimorbidity
@@ -957,6 +972,7 @@ complicated diabetes by `multimorbidity::charlson()` whereas
 `medicalcoder::comorbidities()` returns only the more sever level.
 
 ```{r}
+#| label: multimorbidity-diabetes-false-negatives
 dm_fn <-
   merge(
     x = mdcrDT[patid %in% mdcr_v_multimorbidity[dm > charlson_diab_uc, patid]],
@@ -977,6 +993,7 @@ digit E13.6x codes are missed by `multimorbidity::charlson()`.
 
 Additonal mismatches:
 ```{r}
+#| label: multimorbidity-other-mismatches
 mdcr_v_multimorbidity[, .N, keyby = .(mal, charlson_malig)]
 mdcr_v_multimorbidity[, .N, keyby = .(mst, charlson_met_solid)]
 mdcr_v_multimorbidity[, .N, keyby = .(chf, charlson_chf)]
@@ -1255,7 +1272,7 @@ consistent with other implementations, or with increased precision and
 considerably faster as well.  Additionally, medicalcoder has some nice-to-haves
 for working with the results from calling `medicalcoder::comorbidities()`.
 
-## summary()
+## summary() methods for `medicalcoder::comorbidities()` results
 
 An S3 `summary()` method is available for the `medicalcoder_comorbidities` class
 objects returned from `medicalcoder::comorbidities()`.
@@ -1522,7 +1539,7 @@ knitr::kable(
 )
 ```
 
-# `medicalcoder::is_icd()`
+### `medicalcoder::is_icd()`
 
 By convention, ICD codes are generally reported without decimal points. Under
 this convention discriminating between ICD-9 and ICD-10, and between diagnostic
@@ -1545,6 +1562,7 @@ medicalcoder::lookup_icd_codes("7993")
 
 A vector of possible codes:
 ```{r}
+#| label: icd-is-icd-vector
 x <-
   c("7993", "A924", "7993", "A924", "no", "A92", "516", "5163", "51631", "A00")
 medicalcoder::is_icd(x)
@@ -1554,6 +1572,7 @@ If you have codes with decimal points then discriminating between ICD-9
 diagnostic and procedure codes can be done.
 
 ```{r}
+#| label: icd-decimal-disambiguation
 x <- c("7993",  # valid dx and pr code
        ".7993", # not a valid code
        "7.993", # not a valid code
@@ -1581,7 +1600,9 @@ strings are valid ICD-9 diagnostic codes.
 By default, if no year is provided in the `medicalcoder::is_icd()` call then
 return will be `TRUE` if the code was ever assignable.
 
-```{r, results = "asis"}
+```{r}
+#| label: icd-assignable-table
+#| results: "asis"
 x <- paste0("516.3", c("", 0:9))
 tab <-
   data.frame(
@@ -1600,7 +1621,8 @@ knitr::kable(tab)
 
 Similar information can be quickly and easily retrieved via
 `medicalcoder::lookup_icd_codes()`.
-```{r, results = "asis"}
+```{r}
+#| label: icd-lookup-assignable
 #| results: "asis"
 knitr::kable(medicalcoder::lookup_icd_codes(x))
 ```
@@ -1621,6 +1643,7 @@ By setting `headerok = TRUE` "516" will be flagged as a valid code.  An ICD-10
 header "A00" will be FALSE in the following checks of ICD-9 codes.
 
 ```{r}
+#| label: icd-headerok-example
 x <- c("516", "5163", "51631", "A00")
 tab <-
   data.frame(
@@ -1653,7 +1676,7 @@ tab <-
 knitr::kable(tab)
 ```
 
-### `icd_compact_to_full()`
+### `medicalcoder::icd_compact_to_full()`
 
 To go from a full code to a compact code is simple, omit any decimal point in
 the string.
@@ -1670,6 +1693,7 @@ seven characters long.  The actual code E1234 is not a valid ICD code.  We use
 this string as an example.
 
 ```{r}
+#| label: icd-compact-to-full-dx
 medicalcoder::icd_compact_to_full("E1234", icdv =  9, dx = 1)
 medicalcoder::icd_compact_to_full("E1234", icdv = 10, dx = 1)
 
@@ -1680,6 +1704,7 @@ Notice that no change to the string is made when trying to convert to a full
 procedure code.
 
 ```{r}
+#| label: icd-compact-to-full-pr
 medicalcoder::icd_compact_to_full("E1234", icdv =  9, dx = 0)
 medicalcoder::icd_compact_to_full("E1234", icdv = 10, dx = 0)
 ```
@@ -1693,6 +1718,7 @@ sessionInfo()
 
 ```{r}
 #| label: same-image
+#| include: false
 # saving the image to use some of the results in the manuscript body
 save.image(file = "medicalcoder-vs.Rdata")
 ```
