@@ -31,7 +31,8 @@ loadNamespace('data.table')
 
 In this supplement we will use the MIMIC-IV v3.1 Data
 [@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000]
-to illustrate how to flag comorbidities via `medicalcoder::comorbidities()`.
+to illustrate how to flag comorbidities via `medicalcoder::comorbidities()` and
+a couple alternative utilities.
 
 To reproduced this work end users will need to have access to the MIMIC-IV v3.1
 data.  We have stored the path to the MIMIC-IV data as a system variable on our
@@ -43,6 +44,14 @@ Computational Physilogy (MIT\_LCP) on
 [GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
 path to a local copy of the respository in the system environmental variable
 `MIMICIVCODE`.
+
+We will compare the results from `medicalcoder::comorbidities()` to those from
+the MIMIC-IV Charlson SQL code, and the results from the R package comorbidity
+[@r-comorbidity].   For Elixhauser, we will compare between
+`medicalcoder::comorbidities()` and the R package comorbidity.
+
+Lastly, we will compare results between `medicalcoder::comorbidities()` and the
+PCCC from `pccc::ccc()` [@r-pccc].
 
 ```{r}
 #| label: getenv
@@ -203,7 +212,54 @@ There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects and a total of
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique hospital encounters.
 
-# Applying the MIMIC-IV Charlson SQL 
+# Charlson Comorbidities
+
+## `medicalcoder::comorbidities()`
+
+```{r}
+#| label: medicalcoder-warmup
+#| include: false
+# to give the best possible time for medicalcoder, it will be helpful to run the
+# code once just to make sure all the needed internal data sets have been built
+medicalcoder::comorbidities(
+  data = mimicivDT[1:10],
+  id.vars = c("subject_id", "hadm_id"),
+  icd.codes = "icd_code",
+  icdv.var = "icd_version",
+  dx.var = "dx",
+  age.var = "age",
+  method = "charlson_quan2005",
+  full.codes = FALSE,
+  flag.method = "current",
+  primarydx = 0L,
+  poa = 1L
+)
+```
+
+```{r}
+#| label: medicalcoder-charlson-results
+tic <- Sys.time()
+medicalcoder_charlson_results <-
+  medicalcoder::comorbidities(
+    data = mimicivDT,
+    id.vars = c("subject_id", "hadm_id"),
+    icd.codes = "icd_code",
+    icdv.var = "icd_version",
+    dx.var = "dx",
+    age.var = "age",
+    method = "charlson_quan2005",
+    full.codes = FALSE,
+    flag.method = "current",
+    primarydx = 0L,
+    poa = 1L
+  )
+toc <- Sys.time()
+
+attr(medicalcoder_charlson_results, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+## MIMIC-IV Charlson SQL 
 
 SQL code for applying a Charlson comorbidity algorithm to the MIMIC-IV data is
 available from MIT Laboratory for Computational Physilogy (MIT\_LCP) on
@@ -306,32 +362,96 @@ data.table::setnames(
 )
 ```
 
-# Charlson Comorbidities via `medicalcoder::comorbidities()`
+## `comorbidity::comorbidity()`
+
+The R package _comorbidity_[@r-comorbidity] is a commonly referenced package
+used for flagging Charlson and Elixhauser comorbidities.  One consideration for
+using `comorbidity::comorbidity()` is that ICD-9 or ICD-10 codes are used
+independently. There are 
+`r mimicivDT[, length(unique(icd_version)), by = .(subject_id)][V1 > 1, .N]`
+subjects with both ICD-9 and ICD-10 codes in their records, and 
+`r mimicivDT[, length(unique(icd_version)), by = .(subject_id, hadm_id)][V1 > 1, .N]`
+encounters with both ICD versions.
 
 ```{r}
-#| label: medicalcoder-warmup
-#| include: false
-# to give the best possible time for medicalcoder, it will be helpful to run the
-# code once just to make sure all the needed internal data sets have been built
-medicalcoder::comorbidities(
-  data = mimicivDT[1:10],
-  id.vars = c("subject_id", "hadm_id"),
-  icd.codes = "icd_code",
-  icdv.var = "icd_version",
-  dx.var = "dx",
-  age.var = "age",
-  method = "charlson_quan2005",
-  full.codes = FALSE,
-  flag.method = "current",
-  primarydx = 0L,
-  poa = 1L
-)
+# subjects with ICD-9 and ICD-10 codes
+mimicivDT[, length(unique(icd_version)), by = .(subject_id)][V1 > 1] 
+
+# encounters with ICD-9 and ICD-10
+mimicivDT[, length(unique(icd_version)), by = .(subject_id, hadm_id)][V1 > 1] 
 ```
 
+To flag the conditions appropriately we must split the data by ICD version,
+apply `comorbidity::comorbidity()` to each split, and then aggregate the
+results.  Also, `comorbidity::comorbidity()` only takes one column for the id
+and thus we need to build an composite id.
+
 ```{r}
-#| label: medicalcoder-charlson-results
+#| label: comorbidity-charlson-results
 tic <- Sys.time()
-medicalcoder_charlson_results <-
+
+mimicivDT_for_comorbidity <-
+  mimicivDT[, cid := paste(subject_id, hadm_id, sep = "__")]
+
+comorbidity_charlson_icd9 <-
+  comorbidity::comorbidity(
+    x = subset(mimicivDT_for_comorbidity, icd_version == 9 & dx == 1L), # only ICD-9 Diagnostic codes
+    id = "cid",
+    code = "icd_code",
+    map = "charlson_icd9_quan",
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
+  )
+data.table::setDT(comorbidity_charlson_icd9)
+
+comorbidity_charlson_icd10 <-
+  comorbidity::comorbidity(
+    x = subset(mimicivDT_for_comorbidity, icd_version == 10 & dx == 1L), # only ICD-9 Diagnostic codes
+    id = "cid",
+    code = "icd_code",
+    map = "charlson_icd10_quan",
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
+  )
+data.table::setDT(comorbidity_charlson_icd10)
+
+comorbidity_charlson_results <-
+  data.table::rbindlist(
+    list(
+      comorbidity_charlson_icd9,
+      comorbidity_charlson_icd10
+    )
+  )
+
+comorbidity_charlson_results <-
+  comorbidity_charlson_results[
+    , 
+    lapply(.SD, max),
+    by = "cid",
+    .SDcols = -"cid"
+    ]
+
+# expand the id colummns
+comorbidity_charlson_results[
+  ,
+  c("subject_id", "hadm_id") := data.table::tstrsplit(cid, "__")
+  ]
+comorbidity_charlson_results[, cid := NULL]
+
+toc <- Sys.time()
+
+attr(comorbidity_charlson_results, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+# Elixhauser
+
+## `medicalcoder::comorbidities()`
+
+```{r}
+#| label: medicalcoder-elixhauser-results
+tic <- Sys.time()
+medicalcoder_elixhauser_results <-
   medicalcoder::comorbidities(
     data = mimicivDT,
     id.vars = c("subject_id", "hadm_id"),
@@ -339,7 +459,7 @@ medicalcoder_charlson_results <-
     icdv.var = "icd_version",
     dx.var = "dx",
     age.var = "age",
-    method = "charlson_quan2005",
+    method = "elixhauser_quan2005",
     full.codes = FALSE,
     flag.method = "current",
     primarydx = 0L,
@@ -347,30 +467,92 @@ medicalcoder_charlson_results <-
   )
 toc <- Sys.time()
 
-attr(medicalcoder_charlson_results, "tictoc") <-
+attr(medicalcoder_elixhauser_results, "tictoc") <-
   difftime(toc, tic, units = "secs")
 ```
 
-# Charlson Comorbidities via `comorbidity::comorbidity()`
-
-The R package _comorbidity_[@r-comorbidity] is a commonly referenced package
-used for flagging Charlson and Elixhauser comorbidities.
+## `comorbidity::comorbidity()`
 
 ```{r}
-#| label: comorbidity-charlson
-#| cache: true
+#| label: comorbidity-elixhauser-results
+tic <- Sys.time()
 
+comorbidity_elixhauser_icd9 <-
+  comorbidity::comorbidity(
+    x = subset(mimicivDT_for_comorbidity, icd_version == 9 & dx == 1L), # only ICD-9 Diagnostic codes
+    id = "cid",
+    code = "icd_code",
+    map = "elixhauser_icd9_quan",
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
+  )
+data.table::setDT(comorbidity_elixhauser_icd9)
+
+comorbidity_elixhauser_icd10 <-
+  comorbidity::comorbidity(
+    x = subset(mimicivDT_for_comorbidity, icd_version == 10 & dx == 1L), # only ICD-9 Diagnostic codes
+    id = "cid",
+    code = "icd_code",
+    map = "elixhauser_icd10_quan",
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
+                   # comorbidities is also flagged
+  )
+data.table::setDT(comorbidity_elixhauser_icd10)
+
+comorbidity_elixhauser_results <-
+  data.table::rbindlist(
+    list(
+      comorbidity_elixhauser_icd9,
+      comorbidity_elixhauser_icd10
+    )
+  )
+
+comorbidity_elixhauser_results <-
+  comorbidity_elixhauser_results[
+    , 
+    lapply(.SD, max),
+    by = "cid",
+    .SDcols = -"cid"
+    ]
+
+# expand the id colummns
+comorbidity_elixhauser_results[
+  ,
+  c("subject_id", "hadm_id") := data.table::tstrsplit(cid, "__")
+  ]
+comorbidity_elixhauser_results[, cid := NULL]
+
+toc <- Sys.time()
+
+attr(comorbidity_elixhauser_results, "tictoc") <-
+  difftime(toc, tic, units = "secs")
 ```
 
-# MIMIC-IV Code Results vs `medicalcoder::comorbidities()` Results
+# PCCC
 
-The processing the SQL took considerably longer than
-`medicalcoder::comorbidities()`
+## `medicalcoder::comorbidities()`
+Calling `medicalcoder::comorbidities()` with `method = 'pccc_v2.0'` is intended
+to be consistent with `pccc::ccc()`.
+
+## `pccc::ccc()`
+
+# Comparison of Results
+
+## Execution Time
+
 
 ```{r}
 #| label: medicalcoder-vs-mimiciv-time-delta
-attr(mimiciv_charlson_results, "tictoc") # seconds
-attr(medicalcoder_charlson_results, "tictoc") # seconds
+attr(medicalcoder_charlson_results, "tictoc")
+attr(mimiciv_charlson_results, "tictoc")
+attr(comorbidity_charlson_results, "tictoc")
+
+attr(mimiciv_charlson_results, "tictoc")
+attr(medicalcoder_charlson_results, "tictoc")
+attr(comorbidity_elixhauser_results, "tictoc")
+
+attr(pccc_pcccv2_results, "tictoc")
+attr(medicalcoder_pcccv2_results, "tictoc")
 ```
 
 
