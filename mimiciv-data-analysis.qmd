@@ -6,6 +6,7 @@ format:
   pdf:
     toc: true
     number-sections: true
+    keep-tex: true
     include-in-header:
       text: |
         \usepackage[table]{xcolor}
@@ -29,35 +30,41 @@ loadNamespace('data.table')
 
 # Objective and Setup
 
-In this supplement we will use the MIMIC-IV v3.1 Data
-[@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000]
-to illustrate how to flag comorbidities via `medicalcoder::comorbidities()` and
-a couple alternative utilities.
+This supplement is used to showcase `medicalcoder::comorbidities()` on its own
+and against alternative tools for applying Charlson, Elixhauser, and Pedicatric
+Complex Chronic Conditions (PCCC) to a data set.
 
-To reproduced this work end users will need to have access to the MIMIC-IV v3.1
-data.  We have stored the path to the MIMIC-IV data as a system variable on our
-machines.  If you are going to reproduce this work either set the same
-environment variable or overwrite the `MIMICIVDATA` variable defined below.
-Additionally, we will use some of the SQL code for applying the Charlson
-comorbidity algorithm to the MIMIC-IV data provided by the MIT Laboratory for
-Computational Physilogy (MIT\_LCP) on
-[GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
-path to a local copy of the respository in the system environmental variable
-`MIMICIVCODE`.
+# Materials and Methods
 
-We will compare the results from `medicalcoder::comorbidities()` to those from
-the MIMIC-IV Charlson SQL code, and the results from the R package comorbidity
-[@r-comorbidity].   For Elixhauser, we will compare between
-`medicalcoder::comorbidities()` and the R package comorbidity.
+## Data
 
-Lastly, we will compare results between `medicalcoder::comorbidities()` and the
-PCCC from `pccc::ccc()` [@r-pccc].
+We use the MIMIC-IV v3.1 Data
+[@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000] as the fondation for
+these examples. To reproduced this work end users will need to have access to
+the MIMIC-IV v3.1 data.  
+
+## Alternative Utilities
+
+We compared the results from `medicalcoder::comorbidities()` to the Charlson
+comorbidities flagged by the MIMIC-IV code, and the R package _comorbidity_
+[@r-comorbidity].  For Elixhauser we will compare results between
+`medicalcoder::comorbidities()` and `comorbidity::comorbidity()`.  Lastly, we
+will compare PCCC version 2 results between `medicalcoder::comorbidities()` and
+the R package _pccc_ [@r-pccc] call `pccc::ccc()`.
+
+# Results
+
+## MIMIC-IV Data Prep
+
+We have stored the path to the MIMIC-IV data as a
+system variable on our machines.  If you are going to reproduce this work either
+set the same environment variable or overwrite the `MIMICIVDATA` variable
+defined below.
 
 ```{r}
-#| label: getenv
+#| label: MIMICIVDATA
 # System variable stores path to MIMIC-IV data
 MIMICIVDATA <- Sys.getenv("MIMICIVDATA")
-MIMICIVCODE <- Sys.getenv("MIMICIVCODE")
 ```
 
 ```{r}
@@ -73,8 +80,12 @@ stopifnot(
 )
 ```
 
+@tbl-mimicivdata-checksums gives the sha256 checksums for the files in the
+MIMIC-IV data set.
+
 ```{r}
-#| label: display checksums
+#| label: tbl-mimicivdata-checksums
+#| tab-cap: "SHA256 Check sums for files in the MIMIC-IV v3.1 data."
 #| echo: false
 #| results: "asis"
 data.table::fread(
@@ -85,13 +96,15 @@ kableExtra::kbl(
   x = _,
   col.names = c("sha256sum", "file"),
   format = "latex",
-  caption = "SHA256 Check sums for files in the MIMIC-IV v3.1 data.",
+  #caption = "SHA256 Check sums for files in the MIMIC-IV v3.1 data.",
   booktabs = TRUE
   ) |>
 kableExtra::kable_styling(
-  latex_options = c("striped")
+  latex_options = c("striped", "scale_down")
 )
 ```
+
+Each file checksum has been verified.
 
 ```{r}
 #| label: verify-checksums
@@ -101,26 +114,6 @@ system(
   intern = TRUE
 )
 ```
-
-The SQL code for applying the Charlson comorbidities:
-```{r}
-mimiciv_charlson_sql <-
-  file.path(MIMICIVCODE, "concepts", "comorbidity", "charlson.sql")
-
-# checksum
-stopifnot(
-  substr(
-    system(
-      sprintf("sha256sum %s", mimiciv_charlson_sql),
-      intern = TRUE
-    ),
-  start = 1L,
-  stop = 64L
-  ) == "5b797b673ace4dcbc6f686848d24371382f49ac61fcc39101f09c3b42969d801"
-)
-```
-
-# Data Preperation
 
 We will read in the MIMIC-IV hospital data and do some light formating to before
 using `medicalcoder::comorbidities()` to flag comorbidities.  Start by importing
@@ -211,6 +204,135 @@ str(mimicivDT)
 There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for 
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects and a total of
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique hospital encounters.
+
+## Flagging comorbidities
+
+In the following we will outline how to apply the comorbidities methods to the
+`mimicivDT` data set.  We will define some wrapper functions to simpify calls.
+We will return the results and time how long it takes to apply the methods.
+
+### `medicalcoder::comorbidities()`
+The call to `medicalcoder::comorbidities()` for all the methods (comorbidity
+algorithm) and flagging method (encounter level or longitudinal) only require
+modifying the `method` and the `flag.method` arguments of the call.  As such, we
+define a wrapper here to simplify the repeated calls.
+
+```{r}
+#| label: define-medicalcoder-call-wrapper
+call_medicalcoder_comorbidities <- function(method, flag.method) {
+  tic <- Sys.time()
+  rtn <-
+    medicalcoder::comorbidities(
+      data = mimicivDT,
+      icd.codes = "icd_code",
+      icdv.var = "icd_version",
+      dx.var = "dx",
+      id.vars = c("subject_id", "hadm_id", "enc_seq"),
+      poa = 1,       # consider all codes present on admission
+      primarydx = 0, # consider all codes secondary diagnoses
+      flag.method = flag.method,
+      method = method
+    )
+  toc <- Sys.time()
+  attr(rtn, "tictoc") <- difftime(toc, tic, units = "secs")
+  rtn
+}
+```
+
+```{r}
+#| label: medicalcoder-calls
+medicalcoder_charlson_encounter_level <-
+  call_medicalcoder_comorbidities(method = "charlson_quan2005", flag.method = "current")
+
+medicalcoder_charlson_longitudinal_level <-
+  call_medicalcoder_comorbidities(method = "charlson_quan2005", flag.method = "cumulative")
+
+medicalcoder_elixhauser_encounter_level <-
+  call_medicalcoder_comorbidities(method = "elixhauser_quan2005", flag.method = "current")
+
+medicalcoder_elixhauser_longitudinal_level <-
+  call_medicalcoder_comorbidities(method = "elixhauser_quan2005", flag.method = "cumulative")
+
+medicalcoder_pcccv2_encounter_level <-
+  call_medicalcoder_comorbidities(method = "pccc_v2.0", flag.method = "current")
+
+medicalcoder_pcccv2_longitudinal_level <-
+  call_medicalcoder_comorbidities(method = "pccc_v2.0", flag.method = "cumulative")
+
+medicalcoder_pcccv3_encounter_level <-
+  call_medicalcoder_comorbidities(method = "pccc_v3.1", flag.method = "current")
+
+medicalcoder_pcccv3_longitudinal_level <-
+  call_medicalcoder_comorbidities(method = "pccc_v3.1", flag.method = "cumulative")
+```
+
+### MIMIC-IV Code
+
+We use some of the SQL code for applying the Charlson
+comorbidity algorithm to the MIMIC-IV data provided by the MIT Laboratory for
+Computational Physilogy (MIT\_LCP) on
+[GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
+path to a local copy of the respository in the system environmental variable
+`MIMICIVCODE`.
+
+```{r}
+#| label: MIMICIVCODE
+# System variable stores path to MIMIC-IV code repo
+MIMICIVCODE <- Sys.getenv("MIMICIVCODE")
+```
+
+#### `comorbidity::comorbidity()`
+#### `pccc::ccc()`
+
+### Longitudinal
+
+#### `medicalcoder::comorbidities()`
+#### `comorbidity::comorbidity()`
+#### `pccc::ccc()`
+
+## Comparing Ressults
+
+
+
+
+
+
+
+
+
+
+We will compare the results from `medicalcoder::comorbidities()` to those from
+the MIMIC-IV Charlson SQL code, and the results from the R package comorbidity
+[@r-comorbidity].   For Elixhauser, we will compare between
+`medicalcoder::comorbidities()` and the R package comorbidity.
+
+Lastly, we will compare results between `medicalcoder::comorbidities()` and the
+PCCC from `pccc::ccc()` [@r-pccc].
+
+
+
+
+
+The SQL code for applying the Charlson comorbidities:
+```{r}
+mimiciv_charlson_sql <-
+  file.path(MIMICIVCODE, "concepts", "comorbidity", "charlson.sql")
+
+# checksum
+stopifnot(
+  substr(
+    system(
+      sprintf("sha256sum %s", mimiciv_charlson_sql),
+      intern = TRUE
+    ),
+  start = 1L,
+  stop = 64L
+  ) == "5b797b673ace4dcbc6f686848d24371382f49ac61fcc39101f09c3b42969d801"
+)
+```
+
+# Data Preperation
+
 
 # Charlson Comorbidities
 
@@ -543,6 +665,7 @@ to be consistent with `pccc::ccc()`.
 
 ```{r}
 #| label: medicalcoder-vs-mimiciv-time-delta
+#| eval: false
 attr(medicalcoder_charlson_results, "tictoc")
 attr(mimiciv_charlson_results, "tictoc")
 attr(comorbidity_charlson_results, "tictoc")
