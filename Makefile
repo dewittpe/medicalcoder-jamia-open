@@ -18,3 +18,4 @@ medicalcoder-manuscript.docx: medicalcoder-manuscript.qmd template.docx referenc
 	$(QUARTO) render $<
 
 clean:
+	$(RM) -r *_cache

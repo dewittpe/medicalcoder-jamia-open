@@ -24,6 +24,17 @@ knitr::opts_chunk$set(
   cache = TRUE
 )
 
+options(knitr.kable.NA = "")
+
+# Go Avs Go!
+# {
+#   "burgundy" : "#6F263D",
+#   "blue" : "#236192",
+#   "light-blue" : "#4F8FCB"
+#   "silver" : "#A2AAAD",
+#   "black" : "#000000"
+# }
+
 loadNamespace('medicalcoder')
 loadNamespace('data.table')
 ```
@@ -31,7 +42,7 @@ loadNamespace('data.table')
 # Objective and Setup
 
 This supplement is used to showcase `medicalcoder::comorbidities()` on its own
-and against alternative tools for applying Charlson, Elixhauser, and Pedicatric
+and against alternative tools for applying Charlson, Elixhauser, and Pediatric
 Complex Chronic Conditions (PCCC) to a data set.
 
 # Materials and Methods
@@ -39,9 +50,17 @@ Complex Chronic Conditions (PCCC) to a data set.
 ## Data
 
 We use the MIMIC-IV v3.1 Data
-[@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000] as the fondation for
+[@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000] as the foundation for
 these examples. To reproduced this work end users will need to have access to
-the MIMIC-IV v3.1 data.  
+the MIMIC-IV v3.1 data.
+
+__NOTE:__
+The MIMIC-IV data consists of only
+adult patients.  The PCCC is intended for pediatrics and may not be of interest
+in adult data.  However,
+In this work we are focused on the use of the _medicalcoder_ package and so
+we use adult data here to illustrate the use the package, not to make clinical
+inference.
 
 ## Alternative Utilities
 
@@ -135,6 +154,7 @@ mimicivdata <-
 We will build an additional data set for age (in years).
 
 ```{r}
+#| label: build-mimicvidata-ages
 mimicivdata$ages <-
   merge(
     x = mimicivdata$admissions[, .(subject_id, hadm_id, admittime)],
@@ -142,13 +162,22 @@ mimicivdata$ages <-
     all = FALSE,
     by = "subject_id"
   )
-mimicivdata$ages[, anchor_year := as.POSIXct(paste0(anchor_year, "-01-01"), format = "%Y-%m-%d")]
-mimicivdata$ages[, age := as.numeric(difftime(admittime, anchor_year, units = "days")) / 365.25 + anchor_age]
+mimicivdata$ages[
+  ,
+  anchor_year := as.POSIXct(paste0(anchor_year, "-01-01"), format = "%Y-%m-%d")
+]
+mimicivdata$ages[
+  ,
+  age :=
+    anchor_age +
+    as.numeric(difftime(admittime, anchor_year, units = "days")) / 365.25
+]
 ```
 
 For the calls to `medicalcoder::comorbidities()` we can have all the ICD codes
 in one data.frame (data.table will be used here).
 ```{r}
+#| label: build-mimicivdata-icd
 mimicivdata$icd <-
   data.table::rbindlist(
     list(dx = mimicivdata$diagnoses_icd, pr = mimicivdata$procedures_icd),
@@ -168,30 +197,38 @@ We put all the parts together into one data.frame (data.table)
 #| label: one-data-set
 mimicivDT <-
   merge(
-    x =
-      merge(
-        x = mimicivdata$icd,
-        y =
-          merge(
-            x = mimicivdata$patients[, .(subject_id)],
-            y = mimicivdata$ages[, .(subject_id, hadm_id, age)],
-            all = TRUE,
-            by = c("subject_id")
-          ),
-        all = TRUE,
-        by = c("subject_id", "hadm_id")
-      ),
+    x = mimicivdata$patients[, .(subject_id)],
+    y = mimicivdata$ages[, .(subject_id, hadm_id, age)],
+    all = TRUE,
+    by = c("subject_id")
+  )
+
+mimicivDT <-
+  merge(
+    x = mimicivdata$icd,
+    y = mimicivDT,
+    all = TRUE,
+    by = c("subject_id", "hadm_id")
+  )
+
+mimicivDT <-
+  merge(
+    x = mimicivDT,
     y = mimicivdata$admissions[, .(subject_id, hadm_id, admittime)],
     all = TRUE,
     by = c("subject_id", "hadm_id")
   )
 
-# set keys and order the data by subject id, admittime, and the hadm_id
+# set keys and order the data by subject id, admittime, hadm_id
 data.table::setkey(mimicivDT, subject_id, admittime, hadm_id)
 
 # set an encounter sequence variable. This works because the data has been
-# sorted by subject_id, admittime, hadm_id
-mimicivDT[, enc_seq := .GRP, by = .(subject_id, hadm_id)]
+# sorted by subject_id, admittime
+mimicivDT[, enc_seq := cumsum(!duplicated(hadm_id)), by = .(subject_id)]
+
+# For some of the methods, only one id variable is allowed so we create a
+# composite id:
+mimicivDT[, cid := paste(subject_id, enc_seq, sep = "__")]
 ```
 
 Data summary:
@@ -199,9 +236,10 @@ Data summary:
 ```{r}
 #| label: data-summary
 str(mimicivDT)
+mimicivDT
 ```
 
-There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for 
+There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects and a total of
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique hospital encounters.
 
@@ -209,134 +247,18 @@ There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
 
 In the following we will outline how to apply the comorbidities methods to the
 `mimicivDT` data set.  We will define some wrapper functions to simpify calls.
-We will return the results and time how long it takes to apply the methods.
+We will return the results and time how long it takes to apply the methods.  We
+will flag the following comorbidities:
+
+* Charlson _a la_ @quan2005
+* Elixhauser _a la_ @quan2005
+* PCCC v2 _a la_ @feudtner2014pediatric
+* PCCC v3 _a la_ @feinstein2024pediatric
+
+For each of these comorbidity methods we will flag on a per-encounter basis and
+a longitudinal basis within a patient record.
 
 ### `medicalcoder::comorbidities()`
-The call to `medicalcoder::comorbidities()` for all the methods (comorbidity
-algorithm) and flagging method (encounter level or longitudinal) only require
-modifying the `method` and the `flag.method` arguments of the call.  As such, we
-define a wrapper here to simplify the repeated calls.
-
-```{r}
-#| label: define-medicalcoder-call-wrapper
-call_medicalcoder_comorbidities <- function(method, flag.method) {
-  tic <- Sys.time()
-  rtn <-
-    medicalcoder::comorbidities(
-      data = mimicivDT,
-      icd.codes = "icd_code",
-      icdv.var = "icd_version",
-      dx.var = "dx",
-      id.vars = c("subject_id", "hadm_id", "enc_seq"),
-      poa = 1,       # consider all codes present on admission
-      primarydx = 0, # consider all codes secondary diagnoses
-      flag.method = flag.method,
-      method = method
-    )
-  toc <- Sys.time()
-  attr(rtn, "tictoc") <- difftime(toc, tic, units = "secs")
-  rtn
-}
-```
-
-```{r}
-#| label: medicalcoder-calls
-medicalcoder_charlson_encounter_level <-
-  call_medicalcoder_comorbidities(method = "charlson_quan2005", flag.method = "current")
-
-medicalcoder_charlson_longitudinal_level <-
-  call_medicalcoder_comorbidities(method = "charlson_quan2005", flag.method = "cumulative")
-
-medicalcoder_elixhauser_encounter_level <-
-  call_medicalcoder_comorbidities(method = "elixhauser_quan2005", flag.method = "current")
-
-medicalcoder_elixhauser_longitudinal_level <-
-  call_medicalcoder_comorbidities(method = "elixhauser_quan2005", flag.method = "cumulative")
-
-medicalcoder_pcccv2_encounter_level <-
-  call_medicalcoder_comorbidities(method = "pccc_v2.0", flag.method = "current")
-
-medicalcoder_pcccv2_longitudinal_level <-
-  call_medicalcoder_comorbidities(method = "pccc_v2.0", flag.method = "cumulative")
-
-medicalcoder_pcccv3_encounter_level <-
-  call_medicalcoder_comorbidities(method = "pccc_v3.1", flag.method = "current")
-
-medicalcoder_pcccv3_longitudinal_level <-
-  call_medicalcoder_comorbidities(method = "pccc_v3.1", flag.method = "cumulative")
-```
-
-### MIMIC-IV Code
-
-We use some of the SQL code for applying the Charlson
-comorbidity algorithm to the MIMIC-IV data provided by the MIT Laboratory for
-Computational Physilogy (MIT\_LCP) on
-[GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
-path to a local copy of the respository in the system environmental variable
-`MIMICIVCODE`.
-
-```{r}
-#| label: MIMICIVCODE
-# System variable stores path to MIMIC-IV code repo
-MIMICIVCODE <- Sys.getenv("MIMICIVCODE")
-```
-
-#### `comorbidity::comorbidity()`
-#### `pccc::ccc()`
-
-### Longitudinal
-
-#### `medicalcoder::comorbidities()`
-#### `comorbidity::comorbidity()`
-#### `pccc::ccc()`
-
-## Comparing Ressults
-
-
-
-
-
-
-
-
-
-
-We will compare the results from `medicalcoder::comorbidities()` to those from
-the MIMIC-IV Charlson SQL code, and the results from the R package comorbidity
-[@r-comorbidity].   For Elixhauser, we will compare between
-`medicalcoder::comorbidities()` and the R package comorbidity.
-
-Lastly, we will compare results between `medicalcoder::comorbidities()` and the
-PCCC from `pccc::ccc()` [@r-pccc].
-
-
-
-
-
-The SQL code for applying the Charlson comorbidities:
-```{r}
-mimiciv_charlson_sql <-
-  file.path(MIMICIVCODE, "concepts", "comorbidity", "charlson.sql")
-
-# checksum
-stopifnot(
-  substr(
-    system(
-      sprintf("sha256sum %s", mimiciv_charlson_sql),
-      intern = TRUE
-    ),
-  start = 1L,
-  stop = 64L
-  ) == "5b797b673ace4dcbc6f686848d24371382f49ac61fcc39101f09c3b42969d801"
-)
-```
-
-# Data Preperation
-
-
-# Charlson Comorbidities
-
-## `medicalcoder::comorbidities()`
 
 ```{r}
 #| label: medicalcoder-warmup
@@ -358,37 +280,246 @@ medicalcoder::comorbidities(
 )
 ```
 
-```{r}
-#| label: medicalcoder-charlson-results
-tic <- Sys.time()
-medicalcoder_charlson_results <-
-  medicalcoder::comorbidities(
-    data = mimicivDT,
-    id.vars = c("subject_id", "hadm_id"),
-    icd.codes = "icd_code",
-    icdv.var = "icd_version",
-    dx.var = "dx",
-    age.var = "age",
-    method = "charlson_quan2005",
-    full.codes = FALSE,
-    flag.method = "current",
-    primarydx = 0L,
-    poa = 1L
-  )
-toc <- Sys.time()
+The call to `medicalcoder::comorbidities()` has been designed to make calling
+multiple comorbidity methods and multiple flagging methods easy.  For this use
+case it would be programatically preferable to use a simple wrapper about
+`medicalcoder::comorbidities()` to simplify the forthcoming calls.  However, we
+opt to repeat ourselves in the following calls for clarity and ease of selective
+reproduction by the reader.
 
-attr(medicalcoder_charlson_results, "tictoc") <-
+#### Charlson
+
+```{r}
+#| label: medicalcoder-charlson-current
+tic <- Sys.time()
+
+medicalcoder_charlson_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,  # object inheriting data.frame
+    icd.codes   = "icd_code", # character string name of icd codes in data
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,    # consider all codes present on admission
+    age.var     = "age", # in years, only relevant to charlson
+    primarydx   = 0L,    # consider all diagnosis codes secondary diagnoses.
+    method      = "charlson_quan2005",
+    flag.method = "current" # default
+  )
+
+toc <- Sys.time()
+attr(medicalcoder_charlson_current, "tictoc") <-
   difftime(toc, tic, units = "secs")
 ```
 
-## MIMIC-IV Charlson SQL 
+The one difference to get longitudinal results within a subject is to change the
+`flag.method = 'current'` to `flag.method = 'cumulative'`.
 
-SQL code for applying a Charlson comorbidity algorithm to the MIMIC-IV data is
-available from MIT Laboratory for Computational Physilogy (MIT\_LCP) on
-GitHub[^a].  The code is expected to run on Google Big Query.  We make a few
+
+```{r}
+#| label: medicalcoder-charlson-cumulative
+tic <- Sys.time()
+
+medicalcoder_charlson_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    age.var     = "age",
+    primarydx   = 0L,
+    method      = "charlson_quan2005",
+    flag.method = "cumulative"
+  )
+
+toc <- Sys.time()
+attr(medicalcoder_charlson_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+#### Elixhauser
+
+Applying Elixhauser requires a only a change to the `method` argument.
+
+```{r}
+#| label: medicalcoder-elixhauser-current
+tic <- Sys.time()
+
+medicalcoder_elixhauser_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,  # object inheriting data.frame
+    icd.codes   = "icd_code", # character string name of icd codes in data
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,    # consider all codes present on admission
+    age.var     = "age", # in years, only relevant to elixhauser
+    primarydx   = 0L,    # consider all diagnosis codes secondary diagnoses.
+    method      = "elixhauser_quan2005",
+    flag.method = "current" # default
+  )
+
+toc <- Sys.time()
+attr(medicalcoder_elixhauser_current, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+```{r}
+#| label: medicalcoder-elixhauser-cumulative
+tic <- Sys.time()
+
+medicalcoder_elixhauser_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    age.var     = "age",
+    primarydx   = 0L,
+    method      = "elixhauser_quan2005",
+    flag.method = "cumulative"
+  )
+
+toc <- Sys.time()
+attr(medicalcoder_elixhauser_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+#### PCCC v2.0
+
+```{r}
+#| label: medicalcoder-pcccv2-current
+tic <- Sys.time()
+
+medicalcoder_pcccv2.0_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v2.0",
+    flag.method = "current"
+  )
+
+toc <- Sys.time()
+
+attr(medicalcoder_pcccv2.0_current, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+```{r}
+#| label: medicalcoder-pcccv2-cumulative
+tic <- Sys.time()
+
+medicalcoder_pcccv2.0_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    age.var     = "age",
+    method      = "pccc_v2.0",
+    flag.method = "cumulative"
+  )
+
+toc <- Sys.time()
+
+attr(medicalcoder_pcccv2.0_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+#### PCCC v3
+
+```{r}
+#| label: medicalcoder-pcccv3-current
+tic <- Sys.time()
+
+medicalcoder_pcccv3.1_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v3.1",
+    flag.method = "current"
+  )
+
+toc <- Sys.time()
+
+attr(medicalcoder_pcccv3.1_current, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+```{r}
+#| label: medicalcoder-pcccv3-cumulative
+tic <- Sys.time()
+
+medicalcoder_pcccv3.1_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    age.var     = "age",
+    method      = "pccc_v3.1",
+    flag.method = "cumulative"
+  )
+
+toc <- Sys.time()
+
+attr(medicalcoder_pcccv3.1_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+```
+
+
+### MIMIC-IV Code
+
+We use some of the SQL code for applying the Charlson
+comorbidity algorithm to the MIMIC-IV data provided by the MIT Laboratory for
+Computational Physilogy (MIT\_LCP) on
+[GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
+path to a local copy of the respository in the system environmental variable
+`MIMICIVCODE`.
+
+
+```{r}
+#| label: MIMICIVCODE
+# System variable stores path to MIMIC-IV code repo
+MIMICIVCODE <- Sys.getenv("MIMICIVCODE")
+```
+
+The SQL code for applying the Charlson comorbidities and checksum:
+```{r}
+mimiciv_charlson_sql <-
+  file.path(MIMICIVCODE, "concepts", "comorbidity", "charlson.sql")
+
+# checksum
+stopifnot(
+  substr(
+    system(
+      sprintf("sha256sum %s", mimiciv_charlson_sql),
+      intern = TRUE
+    ),
+  start = 1L,
+  stop = 64L
+  ) == "5b797b673ace4dcbc6f686848d24371382f49ac61fcc39101f09c3b42969d801"
+)
+```
+
+The SQL code is expected to run on Google Big Query.  We make a few
 small modifications to the code so we can evaluate the SQL locally via RSQLite.
-
-[^a]: https://github.com/MIT-LCP/mimic-code.git
 
 ```{r}
 #| label: mimic-code-edits
@@ -402,25 +533,36 @@ mimiciv_charlson_sql <-
 
 # modify the query to work in SQLite
 mimiciv_charlson_sql <-
-  gsub(pattern = "physionet-data.mimiciv_hosp.admissions",
-       replacement = "admissions",
-       x = mimiciv_charlson_sql,
-       fixed = TRUE)
+  gsub(
+    pattern = "physionet-data.mimiciv_hosp.admissions",
+    replacement = "admissions",
+    x = mimiciv_charlson_sql,
+    fixed = TRUE
+  )
+
 mimiciv_charlson_sql <-
-  gsub(pattern = "physionet-data.mimiciv_hosp.diagnoses_icd",
-       replacement = "diagnoses",
-       x = mimiciv_charlson_sql,
-       fixed = TRUE)
+  gsub(
+    pattern = "physionet-data.mimiciv_hosp.diagnoses_icd",
+    replacement = "diagnoses",
+    x = mimiciv_charlson_sql,
+    fixed = TRUE
+  )
+
 mimiciv_charlson_sql <-
-  gsub(pattern = "physionet-data.mimiciv_derived.age",
-       replacement = "ages",
-       x = mimiciv_charlson_sql,
-       fixed = TRUE)
+  gsub(
+    pattern = "physionet-data.mimiciv_derived.age",
+    replacement = "ages",
+    x = mimiciv_charlson_sql,
+    fixed = TRUE
+  )
+
 mimiciv_charlson_sql <-
-  gsub(pattern = "GREATEST",
-       replacement = "MAX",
-       x = mimiciv_charlson_sql,
-       fixed = TRUE)
+  gsub(
+    pattern = "GREATEST",
+    replacement = "MAX",
+    x = mimiciv_charlson_sql,
+    fixed = TRUE
+  )
 
 mimiciv_charlson_sql <- paste(mimiciv_charlson_sql, collapse = "\n")
 ```
@@ -432,254 +574,1195 @@ We set up an SQL database in memory and evaluate the code.
 #| echo: true
 #| results: "hide"
 #| cache: true
-library(odbc)
-library(DBI)
-library(RSQLite)
-con <- dbConnect(drv = RSQLite::SQLite(), dbname = ":memory:")
+con <- odbc::dbConnect(drv = RSQLite::SQLite(), dbname = ":memory:")
 
 # add data to the data base
-dbWriteTable(conn = con, name = "diagnoses",  value = mimicivdata$diagnoses)
-dbWriteTable(conn = con, name = "admissions", value = mimicivdata$admissions)
-dbWriteTable(conn = con, name = "patients",   value = mimicivdata$patients)
-dbWriteTable(conn = con, name = "ages",       value = mimicivdata$ages)
+odbc::dbWriteTable(conn = con, name = "diagnoses",  value = mimicivdata$diagnoses)
+odbc::dbWriteTable(conn = con, name = "admissions", value = mimicivdata$admissions)
+odbc::dbWriteTable(conn = con, name = "patients",   value = mimicivdata$patients)
+odbc::dbWriteTable(conn = con, name = "ages",       value = mimicivdata$ages)
 
-# get the charlson results via MIMIC-IV
+# Run the query and record the time required to do so
 tic <- Sys.time()
-mimiciv_charlson_results <- dbGetQuery(con, mimiciv_charlson_sql)
+
+mimiciv_charlson_current <- odbc::dbGetQuery(con, mimiciv_charlson_sql)
+
 toc <- Sys.time()
-attr(mimiciv_charlson_results, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 
-# close DB conection
-dbDisconnect(conn = con)
+attr(mimiciv_charlson_current, "tictoc") <- difftime(toc, tic, units = "secs")
 
-# simplify the column names for comparison with medicalcoder results
-data.table::setDT(mimiciv_charlson_results)
-
-nms <- c(
-  "age_score"                   = "age_score_mimic",
-  "myocardial_infarct"          = "mi_mimic",
-  "congestive_heart_failure"    = "chf_mimic",
-  "peripheral_vascular_disease" = "pvd_mimic",
-  "cerebrovascular_disease"     = "cvd_mimic",
-  "dementia"                    = "dem_mimic",
-  "chronic_pulmonary_disease"   = "copd_mimic",
-  "rheumatic_disease"           = "rd_mimic",
-  "peptic_ulcer_disease"        = "pud_mimic",
-  "mild_liver_disease"          = "mld_mimic",
-  "diabetes_without_cc"         = "dm_mimic",
-  "diabetes_with_cc"            = "dmc_mimic",
-  "paraplegia"                  = "hp_mimic",
-  "renal_disease"               = "rnd_mimic",
-  "malignant_cancer"            = "ca_mimic",
-  "severe_liver_disease"        = "sld_mimic",
-  "metastatic_solid_tumor"      = "mst_mimic",
-  "aids"                        = "aids_mimic"
-)
-
-data.table::setnames(
-    mimiciv_charlson_results,
-    old = names(nms),
-    new = nms
-)
+# close DB connection
+odbc::dbDisconnect(conn = con)
 ```
 
-## `comorbidity::comorbidity()`
+### `comorbidity::comorbidity()`
 
-The R package _comorbidity_[@r-comorbidity] is a commonly referenced package
-used for flagging Charlson and Elixhauser comorbidities.  One consideration for
+The R package _comorbidity_ [@r-comorbidity] is a widely used and referenced
+tool for applying the Charlson and Elixhauser comorbidities.
+One consideration for
 using `comorbidity::comorbidity()` is that ICD-9 or ICD-10 codes are used
-independently. There are 
+independently. There are
 `r mimicivDT[, length(unique(icd_version)), by = .(subject_id)][V1 > 1, .N]`
-subjects with both ICD-9 and ICD-10 codes in their records, and 
+subjects with both ICD-9 and ICD-10 codes in their records, and
 `r mimicivDT[, length(unique(icd_version)), by = .(subject_id, hadm_id)][V1 > 1, .N]`
 encounters with both ICD versions.
-
-```{r}
-# subjects with ICD-9 and ICD-10 codes
-mimicivDT[, length(unique(icd_version)), by = .(subject_id)][V1 > 1] 
-
-# encounters with ICD-9 and ICD-10
-mimicivDT[, length(unique(icd_version)), by = .(subject_id, hadm_id)][V1 > 1] 
-```
 
 To flag the conditions appropriately we must split the data by ICD version,
 apply `comorbidity::comorbidity()` to each split, and then aggregate the
 results.  Also, `comorbidity::comorbidity()` only takes one column for the id
-and thus we need to build an composite id.
+and thus we need to build an composite id.  In the following work we will copy
+the data built for the encounter level flagging and extend for cumulative
+flagging as well.
 
 ```{r}
-#| label: comorbidity-charlson-results
+#| label: comorbidity-charlson
 tic <- Sys.time()
-
-mimicivDT_for_comorbidity <-
-  mimicivDT[, cid := paste(subject_id, hadm_id, sep = "__")]
 
 comorbidity_charlson_icd9 <-
   comorbidity::comorbidity(
-    x = subset(mimicivDT_for_comorbidity, icd_version == 9 & dx == 1L), # only ICD-9 Diagnostic codes
-    id = "cid",
-    code = "icd_code",
-    map = "charlson_icd9_quan",
+    x       = subset(mimicivDT, icd_version == 9 & dx == 1L),
+    id      = "cid",
+    code    = "icd_code",
+    map     = "charlson_icd9_quan",
     assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
                    # comorbidities is also flagged
   )
-data.table::setDT(comorbidity_charlson_icd9)
 
 comorbidity_charlson_icd10 <-
   comorbidity::comorbidity(
-    x = subset(mimicivDT_for_comorbidity, icd_version == 10 & dx == 1L), # only ICD-9 Diagnostic codes
-    id = "cid",
-    code = "icd_code",
-    map = "charlson_icd10_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
-                   # comorbidities is also flagged
-  )
-data.table::setDT(comorbidity_charlson_icd10)
-
-comorbidity_charlson_results <-
-  data.table::rbindlist(
-    list(
-      comorbidity_charlson_icd9,
-      comorbidity_charlson_icd10
-    )
+    x       = subset(mimicivDT, icd_version == 10 & dx == 1L),
+    id      = "cid",
+    code    = "icd_code",
+    map     = "charlson_icd10_quan",
+    assign0 = TRUE
   )
 
-comorbidity_charlson_results <-
-  comorbidity_charlson_results[
-    , 
-    lapply(.SD, max),
-    by = "cid",
-    .SDcols = -"cid"
-    ]
+comorbidity_charlson_current <-
+  rbind(
+    comorbidity_charlson_icd9,
+    comorbidity_charlson_icd10
+  )
 
-# expand the id colummns
-comorbidity_charlson_results[
+# aggregate between the icd versions
+comorbidity_charlson_current <-
+  aggregate(. ~ cid, data = comorbidity_charlson_current, FUN = max)
+
+# Note, Not all the cid are in comorbidity_charlson_current.  Especially for
+# building the cumulative flags we need all the subjects and encounters
+comorbidity_charlson_current <-
+  merge(
+    x = comorbidity_charlson_current,
+    y = unique(mimicivDT[, .(cid)]),
+    all = TRUE,
+    by = "cid"
+  )
+
+# set NA values to zero
+for (j in names(comorbidity_charlson_current)[-1]) {
+  idx <- which(is.na(comorbidity_charlson_current[[j]]))
+  comorbidity_charlson_current[[j]][idx] <- 0L
+}
+
+# apply the scoring, to use comorbidity::score the object needs to have certain
+# attributes which were lost when aggregating over the icd versions.  Replace
+# the attributes
+attributes(comorbidity_charlson_current)[c("class", "variable.labels", "map")] <-
+  attributes(comorbidity_charlson_icd9)[c("class", "variable.labels", "map")]
+
+comorbidity_charlson_current[["score"]] <-
+  comorbidity::score(
+    x = comorbidity_charlson_current,
+    weights = "quan",
+    assign0 = TRUE
+  )
+
+# the score return is a numeric value, setting to integer to match the storage
+# mode of medicalcoder
+comorbidity_charlson_current[["score"]] <-
+  as.integer(comorbidity_charlson_current[["score"]])
+
+# expand the id columns and sort
+data.table::setDT(comorbidity_charlson_current)
+comorbidity_charlson_current[
   ,
-  c("subject_id", "hadm_id") := data.table::tstrsplit(cid, "__")
+  c("subject_id", "enc_seq") := data.table::tstrsplit(cid, "__")
+  ][
+  ,
+  `:=`(subject_id = as.integer(subject_id), enc_seq = as.integer(enc_seq))
   ]
-comorbidity_charlson_results[, cid := NULL]
+data.table::setkey(comorbidity_charlson_current, subject_id, enc_seq)
 
+# end timing for encounter level flagging
 toc <- Sys.time()
 
-attr(comorbidity_charlson_results, "tictoc") <-
-  difftime(toc, tic, units = "secs")
-```
+# For the cumulative flagging
+tic1 <- Sys.time()
 
-# Elixhauser
+comorbidity_charlson_cumulative <- data.table::copy(comorbidity_charlson_current)
 
-## `medicalcoder::comorbidities()`
+# next we use cumsum to flag conditions moving forward in time
+cumflag <- function(x) as.integer(cumsum(x) > 0)
 
-```{r}
-#| label: medicalcoder-elixhauser-results
-tic <- Sys.time()
-medicalcoder_elixhauser_results <-
-  medicalcoder::comorbidities(
-    data = mimicivDT,
-    id.vars = c("subject_id", "hadm_id"),
-    icd.codes = "icd_code",
-    icdv.var = "icd_version",
-    dx.var = "dx",
-    age.var = "age",
-    method = "elixhauser_quan2005",
-    full.codes = FALSE,
-    flag.method = "current",
-    primarydx = 0L,
-    poa = 1L
+for (j in names(comorbidity_charlson_cumulative)) {
+  if (!(j %in% c("subject_id", "enc_seq", "cid"))) {
+    e <- substitute(
+          comorbidity_charlson_cumulative[, J := cumflag(J), by = .(subject_id)],
+          list(J = as.name(j))
+          )
+    eval(e)
+  }
+}
+
+# clean up flags by severity
+comorbidity_charlson_cumulative[diab == 1 & diabwc == 1, diab := 0L]
+comorbidity_charlson_cumulative[mld == 1 & msld == 1, mld := 0L]
+comorbidity_charlson_cumulative[canc == 1 & metacanc == 1, canc := 0L]
+
+# apply the scoring, to use comorbidity::score the object needs to have certain
+# attributes which were lost when aggregating over the icd versions.  Replace
+# the attributes
+data.table::setDF(comorbidity_charlson_cumulative)
+attributes(comorbidity_charlson_cumulative)[c("class", "variable.labels", "map")] <-
+  attributes(comorbidity_charlson_icd9)[c("class", "variable.labels", "map")]
+
+comorbidity_charlson_cumulative[["score"]] <-
+  comorbidity::score(
+    x = comorbidity_charlson_cumulative,
+    weights = "quan",
+    assign0 = TRUE
   )
-toc <- Sys.time()
 
-attr(medicalcoder_elixhauser_results, "tictoc") <-
+# the score return is a numeric value, setting to integer to match the storage
+# mode of medicalcoder
+comorbidity_charlson_cumulative[["score"]] <-
+  as.integer(comorbidity_charlson_cumulative[["score"]])
+
+data.table::setDT(comorbidity_charlson_cumulative)
+
+toc1 <- Sys.time()
+
+attr(comorbidity_charlson_current, "tictoc") <-
   difftime(toc, tic, units = "secs")
+
+attr(comorbidity_charlson_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs") +
+  difftime(toc1, tic1, units = "secs")
 ```
 
-## `comorbidity::comorbidity()`
-
+### Flagging Elixhauser via `comorbidity::comorbidity()`
 ```{r}
-#| label: comorbidity-elixhauser-results
+#| label: comorbidity-elixhauser
 tic <- Sys.time()
 
 comorbidity_elixhauser_icd9 <-
   comorbidity::comorbidity(
-    x = subset(mimicivDT_for_comorbidity, icd_version == 9 & dx == 1L), # only ICD-9 Diagnostic codes
-    id = "cid",
-    code = "icd_code",
-    map = "elixhauser_icd9_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
-                   # comorbidities is also flagged
+    x       = subset(mimicivDT, icd_version == 9 & dx == 1L),
+    id      = "cid",
+    code    = "icd_code",
+    map     = "elixhauser_icd9_quan",
+    assign0 = TRUE
   )
-data.table::setDT(comorbidity_elixhauser_icd9)
 
 comorbidity_elixhauser_icd10 <-
   comorbidity::comorbidity(
-    x = subset(mimicivDT_for_comorbidity, icd_version == 10 & dx == 1L), # only ICD-9 Diagnostic codes
-    id = "cid",
-    code = "icd_code",
-    map = "elixhauser_icd10_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
-                   # comorbidities is also flagged
-  )
-data.table::setDT(comorbidity_elixhauser_icd10)
-
-comorbidity_elixhauser_results <-
-  data.table::rbindlist(
-    list(
-      comorbidity_elixhauser_icd9,
-      comorbidity_elixhauser_icd10
-    )
+    x       = subset(mimicivDT, icd_version == 10 & dx == 1L),
+    id      = "cid",
+    code    = "icd_code",
+    map     = "elixhauser_icd10_quan",
+    assign0 = TRUE
   )
 
-comorbidity_elixhauser_results <-
-  comorbidity_elixhauser_results[
-    , 
-    lapply(.SD, max),
-    by = "cid",
-    .SDcols = -"cid"
-    ]
+comorbidity_elixhauser_current <-
+  rbind(
+    comorbidity_elixhauser_icd9,
+    comorbidity_elixhauser_icd10
+  )
 
-# expand the id colummns
-comorbidity_elixhauser_results[
+# aggregate between the icd versions
+comorbidity_elixhauser_current <-
+  aggregate(. ~ cid, data = comorbidity_elixhauser_current, FUN = max)
+
+# Note, Not all the cid are in comorbidity_elixhauser_current.  Especially for
+# building the cumulative flags we need all the subjects and encounters
+comorbidity_elixhauser_current <-
+  merge(
+    x = comorbidity_elixhauser_current,
+    y = unique(mimicivDT[, .(cid)]),
+    all = TRUE,
+    by = "cid"
+  )
+
+# set NA values to zero
+for (j in names(comorbidity_elixhauser_current)[-1]) {
+  idx <- which(is.na(comorbidity_elixhauser_current[[j]]))
+  comorbidity_elixhauser_current[[j]][idx] <- 0L
+}
+
+# expand the id columns and sort
+data.table::setDT(comorbidity_elixhauser_current)
+comorbidity_elixhauser_current[
   ,
-  c("subject_id", "hadm_id") := data.table::tstrsplit(cid, "__")
+  c("subject_id", "enc_seq") := data.table::tstrsplit(cid, "__")
+  ][
+  ,
+  `:=`(subject_id = as.integer(subject_id), enc_seq = as.integer(enc_seq))
   ]
-comorbidity_elixhauser_results[, cid := NULL]
+data.table::setkey(comorbidity_elixhauser_current, subject_id, enc_seq)
+
+# end timing for encounter level flagging
+toc <- Sys.time()
+
+# For the cumulative flagging
+tic1 <- Sys.time()
+
+comorbidity_elixhauser_cumulative <- data.table::copy(comorbidity_elixhauser_current)
+
+# next we use cumsum to flag conditions moving forward in time
+cumflag <- function(x) as.integer(cumsum(x) > 0)
+
+for (j in names(comorbidity_elixhauser_cumulative)) {
+  if (!(j %in% c("subject_id", "enc_seq", "cid"))) {
+    e <- substitute(
+          comorbidity_elixhauser_cumulative[, J := cumflag(J), by = .(subject_id)],
+          list(J = as.name(j))
+          )
+    eval(e)
+  }
+}
+
+# clean up flags by severity?
+comorbidity_elixhauser_cumulative[diabunc  == 1L & diabc    == 1L, diabunc  := 0L]
+comorbidity_elixhauser_cumulative[hypunc   == 1L & hypc     == 1L, hypunc   := 0L]
+comorbidity_elixhauser_cumulative[solidtum == 1L & metacanc == 1L, solidtum := 0L]
+
+toc1 <- Sys.time()
+
+attr(comorbidity_elixhauser_current, "tictoc") <-
+  difftime(toc, tic, units = "secs")
+
+attr(comorbidity_elixhauser_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs") +
+  difftime(toc1, tic1, units = "secs")
+```
+
+
+### `pccc::ccc()`
+
+The R package _pccc_ [@r-pccc] implements PCCC v2 [@feudtner2014pediatric].  As
+with `comorbidity::comorbidity()` and many other implementations of
+comorbidities, only one version of ICD is assessed at a time.
+
+The expected input structure of the data for `pccc::ccc()` is a wide format, one
+row per encounter, one column for each ICD code.
+
+```{r}
+#| label: pccc
+
+mimicivDT[, dx_char := data.table::fifelse(dx == 1, "DX", "PR")]
+
+mimicivDT_for_pccc <-
+  split(mimicivDT, by = "icd_version") |>
+  lapply(
+    data.table::dcast,
+    formula = cid ~ dx_char + seq_num,
+    value.var = "icd_code"
+    )
+
+tic <- Sys.time()
+pccc_icd9 <-
+  pccc::ccc(
+    data = mimicivDT_for_pccc[["9"]],
+    id = cid,
+    dx_cols = grep("^DX", names(mimicivDT_for_pccc[["9"]]), value = TRUE),
+    pc_cols = grep("^PR", names(mimicivDT_for_pccc[["9"]]), value = TRUE),
+    icdv = 9
+  )
+pccc_icd10 <-
+  pccc::ccc(
+    data = mimicivDT_for_pccc[["10"]],
+    id = cid,
+    dx_cols = grep("^DX", names(mimicivDT_for_pccc[["10"]]), value = TRUE),
+    pc_cols = grep("^PR", names(mimicivDT_for_pccc[["10"]]), value = TRUE),
+    icdv = 10
+  )
+
+pccc_pcccv2.0_current <- rbind(pccc_icd9, pccc_icd10)
+
+# aggregate over ICD version
+pccc_pcccv2.0_current <-
+  aggregate(. ~ cid, data = pccc_pcccv2.0_current, FUN = max)
+
+# Not all the cid are in this data set.  add them and set the missing values to
+# zeros.
+pccc_pcccv2.0_current <-
+  merge(
+    x = pccc_pcccv2.0_current,
+    y = unique(mimicivDT[, .(cid)]),
+    all = TRUE,
+    by = "cid"
+  )
+
+for (j in names(pccc_pcccv2.0_current)[-1]) {
+  idx <- which(is.na(pccc_pcccv2.0_current[[j]]))
+  pccc_pcccv2.0_current[[j]][idx] <- 0L
+}
 
 toc <- Sys.time()
 
-attr(comorbidity_elixhauser_results, "tictoc") <-
-  difftime(toc, tic, units = "secs")
+# cumflag
+tic1 <- Sys.time()
+
+data.table::setDT(pccc_pcccv2.0_current)
+pccc_pcccv2.0_current[,
+  c("subject_id", "enc_seq") := data.table::tstrsplit(cid, "__")
+  ][
+  ,
+  `:=`(
+    subject_id = as.integer(subject_id),
+    enc_seq = as.integer(enc_seq)
+  )]
+
+data.table::setkey(pccc_pcccv2.0_current, subject_id, enc_seq)
+
+pccc_pcccv2.0_cumulative <- data.table::copy(pccc_pcccv2.0_current)
+
+for (j in names(pccc_pcccv2.0_cumulative)) {
+  if (!(j %in% c("cid", "subject_id", "enc_seq"))) {
+    e <- substitute(pccc_pcccv2.0_cumulative[, J := cumflag(J), by = .(subject_id)],
+      list(J = as.name(j)))
+    eval(e)
+  }
+}
+toc1 <- Sys.time()
+
+attr(pccc_pcccv2.0_current, "tictoc") <- difftime(toc, tic, units = "secs")
+attr(pccc_pcccv2.0_cumulative, "tictoc") <-
+  difftime(toc, tic, units = "secs") +
+  difftime(toc1, tic1, units = "secs")
 ```
 
-# PCCC
+## Same Flags?
 
-## `medicalcoder::comorbidities()`
-Calling `medicalcoder::comorbidities()` with `method = 'pccc_v2.0'` is intended
-to be consistent with `pccc::ccc()`.
+### `medicallcoder::comorbidities()` vs MIMIC-IV Code
+Comparing the results between
+_medicalcoder_ and MIMIC-IV code for Charlson comorbidities at the encounter
+level should start by looking at the number or rows in the returned objects.
 
-## `pccc::ccc()`
+```{r}
+#| lable: output-dim
+unique(mimicivDT[, .(subject_id, enc_seq)])
+dim(medicalcoder_charlson_current)
+dim(mimiciv_charlson_current)
+```
 
-# Comparison of Results
+`medicalcoder::comorbidities()` returned a row for each encounter whereas the
+MIMIC-IV code only returned a row for encounters with at least one flag.
 
-## Execution Time
+```{r}
+#| label: build-mdcr-v-mimiciv
+mdcr_v_mimiciv <-
+  merge(
+    x = merge(
+          x = medicalcoder_charlson_current,
+          y = unique(mimicivDT[, .(subject_id, enc_seq, hadm_id)]),
+          all.x = TRUE,
+          by = c("subject_id", "enc_seq")
+        ),
+    y = mimiciv_charlson_current,
+    all = TRUE,
+    by = c("subject_id", "hadm_id"),
+    suffixes = c("_mdcr", "_mimiciv")
+  )
+
+mdcr_v_mimiciv[
+  cmrb_flag == 1L, # at least one flagged comorbidity via medicalcoder
+  !any(is.na(charlson_comorbidity_index))
+]
+```
+
+For the rest of the comparisons we will ignore the encounters not flagged by the
+MIMIC-IV code.
+
+```{r}
+#| label: remove-missing-values-from-mdcr-v-mimiciv
+mdcr_v_mimiciv <- mdcr_v_mimiciv[!is.na(charlson_comorbidity_index)]
+```
+
+There are three comorbidities where there are different levels of severity.
+`medicalcoder::comorbidities()` will set the less severe condition indicator to
+0 when the more severe condition is flagged.  The MIMIC-IV code returns a flag
+for both levels.  Both `medicalcoder::comorbidities()` and MIMIC-IV Code only
+consider the more severe case in the index scoring.  For the comorbidities
+diabetes, cancer, and liver disease we will set the less sever flag to 0 if the
+more sever flag is present for the results from the MIMIC-IV Code.
+
+```{r}
+#| label: set-zeros-by-severity
+mdcr_v_mimiciv[dm == 1L & dmc == 1L, .N == 0L] # medicalcoder
+mdcr_v_mimiciv[diabetes_without_cc == 1L & diabetes_with_cc == 1L, .N > 0L] # MIMIC
+mdcr_v_mimiciv[diabetes_without_cc == 1L & diabetes_with_cc == 1L, diabetes_without_cc := 0L]
+
+mdcr_v_mimiciv[mal == 1L & mst == 1L, .N == 0L] # medicalcoder
+mdcr_v_mimiciv[malignant_cancer == 1L & metastatic_solid_tumor == 1L, .N > 0L] # MIMIC
+mdcr_v_mimiciv[malignant_cancer == 1L & metastatic_solid_tumor == 1L, malignant_cancer := 0L]
+
+mdcr_v_mimiciv[mld == 1L & msld == 1L, .N == 0L] # medicalcoder
+mdcr_v_mimiciv[mild_liver_disease == 1L & severe_liver_disease == 1L, .N > 0L] # MIMIC
+mdcr_v_mimiciv[mild_liver_disease == 1L & severe_liver_disease == 1L, mild_liver_disease := 0L]
+```
+
+```{r}
+#| label: mdcr-v-mimic-check-for-identical-columns
+mvm_columns <-
+  data.table::fread(text = "
+  medicalcoder   | mimicivcode
+  aidshiv        | aids
+  cebvd          | cerebrovascular_disease
+  chf            | congestive_heart_failure
+  copd           | chronic_pulmonary_disease
+  dem            | dementia
+  dm             | diabetes_without_cc
+  dmc            | diabetes_with_cc
+  hp             | paraplegia
+  mal            | malignant_cancer
+  mi             | myocardial_infarct
+  mld            | mild_liver_disease
+  msld           | severe_liver_disease
+  mst            | metastatic_solid_tumor
+  pud            | peptic_ulcer_disease
+  pvd            | peripheral_vascular_disease
+  rhd            | rheumatic_disease
+  rnd            | renal_disease
+  age_score_mdcr | age_score_mimiciv
+  cci            | charlson_comorbidity_index
+  ")
+
+for (i in seq_len(nrow(mvm_columns))) {
+  j1 <- mvm_columns[["medicalcoder"]][i]
+  j2 <- mvm_columns[["mimicivcode"]][i]
+  e <- identical(mdcr_v_mimiciv[[j1]], mdcr_v_mimiciv[[j2]])
+  if (e) {
+    mdcr_v_mimiciv[[j1]] <- NULL
+    mdcr_v_mimiciv[[j2]] <- NULL
+  } else {
+    print(sprintf("%s and %s are not identical", j1, j2))
+  }
+}
+```
+
+All that is left in `mdcr_v_mimiciv` are the id.vars and the
+`num_cmrb`, and `cmrb_flag`.  These columns are from
+`medicalcoder::comorbidities()` and report the number of comorbidities flagged
+and indicator for any comorbidity.
+```{r}
+#| label: show-remainder-of-mdcr-v-mimicivcode
+head(mdcr_v_mimiciv)
+```
+
+### `medicalcoder::comorbidities()` vs `comorbidity::comorbidity()`
+
+#### Charlson
+```{r}
+#| label: build-mdcr-v-cmrb-charlson
+mdcr_v_cmrb_charlson_current <-
+  merge(
+    x = medicalcoder_charlson_current,
+    y = comorbidity_charlson_current,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_cmrb")
+  )
+
+mdcr_v_cmrb_charlson_cumulative <-
+  merge(
+    x = medicalcoder_charlson_cumulative,
+    y = comorbidity_charlson_cumulative,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_cmrb")
+  )
+```
+
+```{r}
+#| label: mdcr-v-cmrb-charlson-column-tests
+mvc_columns <-
+  data.table::fread(text = "
+  medicalcoder   | comorbidity
+  aidshiv        | aids
+  cebvd          | cevd
+  chf_mdcr       | chf_cmrb
+  hp_mdcr        | hp_cmrb
+  copd           | cpd
+  dem            | dementia
+  dm             | diab
+  dmc            | diabwc
+  mal            | canc
+  mi_mdcr        | mi_cmrb
+  mld_mdcr       | mld_cmrb
+  msld_mdcr      | msld_cmrb
+  mst            | metacanc
+  pud_mdcr       | pud_cmrb
+  pvd_mdcr       | pvd_cmrb
+  rhd            | rheumd
+  rnd            | rend
+  cci            | score
+  ")
+
+for (i in seq_len(nrow(mvc_columns))) {
+  #jm <- "mal"; jc <- "canc"
+  jm <- mvc_columns[["medicalcoder"]][i]
+  jc <- mvc_columns[["comorbidity"]][i]
+  e <- identical(mdcr_v_cmrb_charlson_current[[jm]], mdcr_v_cmrb_charlson_current[[jc]])
+  if (e) {
+    mdcr_v_cmrb_charlson_current[[jm]] <- NULL
+    mdcr_v_cmrb_charlson_current[[jc]] <- NULL
+  } else {
+    print(sprintf("mdcr_v_cmrb_charlson_current: %s is not identical to %s", jm, jc))
+  }
+  e <- identical(mdcr_v_cmrb_charlson_cumulative[[jm]], mdcr_v_cmrb_charlson_cumulative[[jc]])
+  if (e) {
+    mdcr_v_cmrb_charlson_cumulative[[jm]] <- NULL
+    mdcr_v_cmrb_charlson_cumulative[[jc]] <- NULL
+  } else {
+    print(sprintf("mdcr_v_cmrb_charlson_cumulative: %s is not identical to %s", jm, jc))
+  }
+}
+```
+
+There is a missmatch for malignant cancer.  In all cases
+`medicalcoder::comorbidities()` flagged malignant cancer while
+`comorbidity::comorbidity()` did not flag.
+```{r}
+#| label: mal-delta-mdcr-v-cmrb
+mdcr_v_cmrb_charlson_current[mal != canc, all(mal > canc)]
+
+DT <-
+  mimicivDT[
+    mdcr_v_cmrb_charlson_current[mal != canc, .(cid)],
+    on = "cid"
+  ][
+    ,
+    code_id := as.numeric(factor(icd_code))
+  ]
+
+medicalcoder::comorbidities(
+  data = DT,
+  id.var = c("icd_code", "code_id"),
+  icd.codes = "icd_code",
+  icdv.var = "icd_version",
+  dx.var = "dx",
+  poa = 1L,
+  primarydx = 0L,
+  method = "charlson_quan2005"
+)[mal == 1, .(icd_code, code_id, mal)]
+
+comorbidity::comorbidity(
+  x = DT,
+  id = "code_id",
+  code = "icd_code",
+  map = "charlson_icd10_quan",
+  assign0 = TRUE
+  ) |>
+subset(subset = canc == 1, select = c("code_id", "canc"))
+
+subset(
+  medicalcoder::get_icd_codes(with.description = TRUE),
+  code %in% c("C4A111", "C4A39", "C4A52", "C4A62", "C4A71", "C4A72", "C4A9")
+  )
+```
+
+Table 2 of @quan2005 lists C45.x - C58.x as mapping to any malignancy.  We argue
+that C4A is included and that these are flase negatives from
+`comorbidity::comorbidity()`.
+
+#### Elixhauser
+
+```{r}
+#| label: build-mdcr-v-cmrb-elixhauser
+mdcr_v_cmrb_elixhauser_current <-
+  merge(
+    x = medicalcoder_elixhauser_current,
+    y = comorbidity_elixhauser_current,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_cmrb")
+  )
+
+mdcr_v_cmrb_elixhauser_cumulative <-
+  merge(
+    x = medicalcoder_elixhauser_cumulative,
+    y = comorbidity_elixhauser_cumulative,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_cmrb")
+  )
+```
+
+```{r}
+#| label: mdcr-v-cmrb-column-tests
+mvc_columns <-
+  data.table::fread(text = "
+  medicalcoder        | comorbidity
+  AIDS                | aids
+  ALCOHOL             | alcohol
+  ANEMDEF             | dane
+  ARTH                | rheumd
+  BLDLOSS             | blane
+  CARDIAC_ARRHYTHMIAS | carit
+  CHF                 | chf
+  CHRNLUNG            | cpd
+  COAG                | coag
+  DEPRESS             | depre
+  DM                  | diabunc
+  DMCX                | diabc
+  DRUG                | drug
+  HTN_CX              | hypc
+  HTN_UNCX            | hypunc
+  HYPOTHY             | hypothy
+  LIVER               | ld
+  LYMPH               | lymph
+  LYTES               | fed
+  METS                | metacanc
+  NEURO               | ond
+  OBESE               | obes
+  PARA                | para
+  PERIVASC            | pvd
+  PSYCH               | psycho
+  PULMCIRC            | pcd
+  RENLFAIL            | rf
+  TUMOR               | solidtum
+  ULCER               | pud
+  VALVE               | valv
+  WGHTLOSS            | wloss
+  ")
+
+for (i in seq_len(nrow(mvc_columns))) {
+  jm <- mvc_columns[["medicalcoder"]][i]
+  jc <- mvc_columns[["comorbidity"]][i]
+  e <- identical(
+    mdcr_v_cmrb_elixhauser_current[[jm]],
+    mdcr_v_cmrb_elixhauser_current[[jc]]
+  )
+  if (e) {
+    mdcr_v_cmrb_elixhauser_current[[jm]] <- NULL
+    mdcr_v_cmrb_elixhauser_current[[jc]] <- NULL
+  } else {
+    print(sprintf("mdcr_v_cmrb_elixhauser_current: %s is not identical to %s", jm, jc))
+  }
+  e <- identical(
+    mdcr_v_cmrb_elixhauser_cumulative[[jm]],
+    mdcr_v_cmrb_elixhauser_cumulative[[jc]]
+  )
+  if (e) {
+    mdcr_v_cmrb_elixhauser_cumulative[[jm]] <- NULL
+    mdcr_v_cmrb_elixhauser_cumulative[[jc]] <- NULL
+  } else {
+    print(sprintf("mdcr_v_cmrb_elixhauser_cumulative: %s is not identical to %s", jm, jc))
+  }
+}
+```
+
+```{r}
+#| label: whats-left-mdcr_v_cmrb_elixhauser
+mdcr_v_cmrb_elixhauser_current
+mdcr_v_cmrb_elixhauser_cumulative
+```
+
+The remaining columns in `mdcr_v_cmrb_elixhauser_current` and
+`mdcr_v_cmrb_elixhauser_cumulative` are unique to
+`medicalcoder::comorbidities()`. `HTN_C` is any hypertension.
 
 
 ```{r}
-#| label: medicalcoder-vs-mimiciv-time-delta
-#| eval: false
-attr(medicalcoder_charlson_results, "tictoc")
-attr(mimiciv_charlson_results, "tictoc")
-attr(comorbidity_charlson_results, "tictoc")
+#| label: verify-htn-c
+stopifnot(
+  identical(
+    medicalcoder_elixhauser_current[["HTN_C"]],
+    as.integer(
+      medicalcoder_elixhauser_current[["HTN_UNCX"]] |
+        medicalcoder_elixhauser_current[["HTN_CX"]]
+    )
+  ),
+  identical(
+    medicalcoder_elixhauser_cumulative[["HTN_C"]],
+    as.integer(
+      medicalcoder_elixhauser_cumulative[["HTN_UNCX"]] |
+        medicalcoder_elixhauser_cumulative[["HTN_CX"]]
+    )
+  )
+)
+```
 
-attr(mimiciv_charlson_results, "tictoc")
-attr(medicalcoder_charlson_results, "tictoc")
-attr(comorbidity_elixhauser_results, "tictoc")
+The
+`mortality_index` and `readmission_index` are based on the weights from
+@ahrq_web in this case were `method = "elixhauser_quan2005"`.  For `method =
+"elixhauser_ahrqXXXX"` other weights may be applied.  To see the specific
+weights used by method call `medicalcoder::get_elixhauser_index_scores()`
 
-attr(pccc_pcccv2_results, "tictoc")
-attr(medicalcoder_pcccv2_results, "tictoc")
+```{r}
+#| label: medicalcoder-get-elixhauser-index-scores
+str(
+  medicalcoder::get_elixhauser_index_scores()
+)
+```
+
+### `medicalcoder::comorbidities()` vs `pccc::ccc()`
+
+```{r}
+#| label: build-mdcr-v-pccc
+mdcr_v_pccc_current <-
+  merge(
+    x = medicalcoder_pcccv2.0_current,
+    y = pccc_pcccv2.0_current,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_pccc")
+  )
+
+mdcr_v_pccc_cumulative <-
+  merge(
+    x = medicalcoder_pcccv2.0_cumulative,
+    y = pccc_pcccv2.0_cumulative,
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_mdcr", "_pccc")
+  )
+```
+
+The return from `pccc::ccc()` does not inlcude all the `subject_id` and
+`enc_seq`.  The missing ones are all flagged as no comorbidities by
+`medicalcoder::comorbidities()`.  Implicitly this is the same result.
+
+```{r}
+#| label: mdcr-v-pccc-na-zero
+# verify that medicalcoder's flag for any comorbidity (cmrb_flag) is zero when
+# the ccc_flag from pccc::ccc()
+mdcr_v_pccc_current[is.na(ccc_flag), all(cmrb_flag == 0)]
+mdcr_v_pccc_cumulative[is.na(ccc_flag), all(cmrb_flag == 0)]
+```
+
+```{r}
+#| label: mdcr-v-pccc-colwise-checks
+for (j in c(unique(medicalcoder::get_pccc_conditions()$condition), "tech_dep", "transplant", "ccc_flag")) {
+  if (j %in% c("tech_dep", "transplant")) {
+    jm <- sprintf("any_%s", j)
+    jp <- j
+  } else if (j == "ccc_flag") {
+    jm <- "cmrb_flag"
+    jp <- j
+  } else {
+    jm <- sprintf("%s_mdcr", j)
+    jp <- sprintf("%s_pccc", j)
+  }
+  e1 <- identical(mdcr_v_pccc_current[[jm]], mdcr_v_pccc_current[[jp]])
+  e2 <- identical(mdcr_v_pccc_cumulative[[jm]], mdcr_v_pccc_cumulative[[jp]])
+  if (e1) {
+    mdcr_v_pccc_current[[jm]] <- NULL
+    mdcr_v_pccc_current[[jp]] <- NULL
+  } else {
+    print(sprintf("for mdcr_v_pccc_current: %s is not identical to %s", jm, jp))
+  }
+  if (e1) {
+    mdcr_v_pccc_cumulative[[jm]] <- NULL
+    mdcr_v_pccc_cumulative[[jp]] <- NULL
+  } else {
+    print(sprintf("for mdcr_v_pccc_cumulative: %s is not identical to %s", jm, jp))
+  }
+}
+```
+
+There are some differences between the results for technology dependence
+(`tech_dep`) and transplant.  The underlying reason for these differences is
+that the implementation of `medicalcoder::comorbidities()` allows for flagging
+of subconditions.  Under this paradigm both technology dependence and transplant
+are subconditions.  There are several ICD codes which had/have errors in _pccc_
+version 1.0.7.
+
+```{r}
+#| label: mdcr-v-pccc-tech-and-trans
+DT <-
+  mimicivDT[
+    mdcr_v_pccc_current[any_tech_dep != tech_dep | any_transplant != transplant],
+    on = c("cid", "subject_id", "enc_seq")
+    ][, .(icd_code, icd_version, dx)
+    ][,
+    code_id := paste0("ICD-", icd_version, "-", ifelse(dx == 1, "CM", "PCS"), " ", icd_code)
+    ][,
+    dx_char := data.table::fifelse(dx == 1, "DX", "PR")
+    ]
+
+DT <- unique(DT)
+
+mdcr <-
+  medicalcoder::comorbidities(
+    data = DT,
+    id.var = "code_id",
+    icd.codes = "icd_code",
+    icdv.var = "icd_version",
+    dx.var = "dx",
+    poa = 1L,
+    method = 'pccc_v2.0'
+  )
+
+DT_for_pccc <-
+  split(DT, by = "icd_version") |>
+  lapply(
+    data.table::dcast,
+    formula = code_id ~ dx_char,
+    value.var = "icd_code"
+    )
+
+pccc <-
+  rbind(
+    pccc::ccc(
+      data = DT_for_pccc[["9"]],
+      id = code_id,
+      dx_cols = grep("^DX", names(DT_for_pccc[["9"]]), value = TRUE),
+      pc_cols = grep("^PR", names(DT_for_pccc[["9"]]), value = TRUE),
+      icdv = 9
+    ),
+    pccc::ccc(
+      data = DT_for_pccc[["10"]],
+      id = code_id,
+      dx_cols = grep("^DX", names(DT_for_pccc[["10"]]), value = TRUE),
+      pc_cols = grep("^PR", names(DT_for_pccc[["10"]]), value = TRUE),
+      icdv = 10
+    )
+  )
+
+delta <-
+  merge(mdcr, pccc, all = TRUE, by = "code_id")
+
+delta <-
+  delta[
+    any_tech_dep != tech_dep | any_transplant != transplant,
+    .(code_id, any_tech_dep, any_transplant, tech_dep, transplant)
+  ]
+
+delta[, .N, keyby = .(any_tech_dep, tech_dep, any_transplant, transplant)]
+
+data.table::setkey(delta, code_id)
+
+print(delta, nrow = Inf)
+```
+
+These are known and reported issues:
+
+* ICD-10-CM Z94x
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/56
+  * Specifically Z94.1, Z94.2, Z94.4, Z94.81, Z94.82, Z94.83, Z94.84 All
+    documented as subcondition transplant but are missing from the transplant
+    set in the pccc_1.0.7/src/pccc.cpp
+
+* ICD-9-CM 3491
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/45
+  * Documented and implemented for neuromusc in `pccc::ccc()` tech_dep is
+    missing
+
+* ICD-9-CM V420
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/54
+  * Documented as renal (transplant); missing from the transplant set in the
+    pccc_1.0.7/src/pccc.cpp
+
+* ICD-9-CM V4585
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/49
+  * Documented for version 2 as metabolic (devices) but is only listed under
+    metabolic in the software.  Because of how `medicalcoder::comorbidities()`
+    is implemented the subconditon (devices) had to be provided in the tables
+    for `method = "pccc_v2.0"`.  This results in the (improved) mapping to
+    technology dependence.  Perhaps more concerning is that the mapping for
+    V45.85 in `pccc::ccc()` maps to a transplant, which is incorrect.  GitHub
+    issue and pull request have been submitted to resolve this issue.
+
+* ICD-9-CM V5391
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/51
+  * In `pccc::ccc()` this codes maps to transplant when it should map to
+    technology dependence.
+
+* ICD-9-CM V56.x
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/46
+  * Same as ICD-9-CM 349.1
+
+* ICD-9-CM V6546
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/52
+  * Missing tech dependence flag from `pccc::ccc()`
+
+* ICD-9-PCS 8606
+  * GitHub Issue: https://github.com/CUD2V/pccc/issues/48
+  * Missing tech dependence flag from `pccc::ccc()`
+
+We remove the transplant and technology dependence columns from the
+`mdcr_v_pccc_current` and `mdcr_v_pccc_cumulative` objects.
+```{r}
+#| label: remove-tech-trans-from-mdcr-v-pccc
+mdcr_v_pccc_current[, any_transplant := NULL]
+mdcr_v_pccc_current[, any_tech_dep := NULL]
+mdcr_v_pccc_current[, transplant := NULL]
+mdcr_v_pccc_current[, tech_dep := NULL]
+mdcr_v_pccc_cumulative[, any_transplant := NULL]
+mdcr_v_pccc_cumulative[, any_tech_dep := NULL]
+mdcr_v_pccc_cumulative[, transplant := NULL]
+mdcr_v_pccc_cumulative[, tech_dep := NULL]
+```
+
+The only remaining columns are the id columns and two columns from
+`medicalcoder::comorbidities()`: `misc`, indicating a technology dependence or
+transplant not classified as one of the other comorbidities, and `num_cmrb`, the
+number of comorbidities flagged.
+
+```{r}
+#| label: whats-left-mdcr-v-pccc
+mdcr_v_pccc_current
+mdcr_v_pccc_cumulative
+```
+
+## Current vs Cumulative Flagging
+
+```{r}
+#| label: build-list-of-objects
+#| include: false
+objs <-
+  c(
+    "mimiciv_charlson_current",
+    "comorbidity_charlson_current",
+    "comorbidity_charlson_cumulative",
+    "comorbidity_elixhauser_current",
+    "comorbidity_elixhauser_cumulative",
+    "medicalcoder_charlson_current",
+    "medicalcoder_charlson_cumulative",
+    "medicalcoder_elixhauser_current",
+    "medicalcoder_elixhauser_cumulative",
+    "medicalcoder_pcccv2.0_current",
+    "medicalcoder_pcccv2.0_cumulative",
+    "medicalcoder_pcccv3.1_current",
+    "medicalcoder_pcccv3.1_cumulative",
+    "pccc_pcccv2.0_current",
+    "pccc_pcccv2.0_cumulative"
+  ) |>
+  sapply(get)
+```
+
+Let's look at the impact of longitudinal flagging vs encounter level flagging of
+Charlson comorbidities.
+
+```{r}
+#| label: build-flagmethod-delta
+#| include: false
+flagmethod_delta <-
+  data.table::rbindlist(
+    objs[grepl("^medicalcoder", names(objs))],
+    use.names = TRUE,
+    fill = TRUE,
+    idcol = "obj"
+  )
+
+flagmethod_delta[
+  ,
+  c("algo", "flag.method") := data.table::tstrsplit(obj, "_", keep = 2:3)
+]
+
+flagmethod_delta[, obj := NULL]
+
+flagmethod_delta <-
+  data.table::melt(
+    data = flagmethod_delta,
+    id.vars = c("subject_id", "enc_seq", "algo", "flag.method"),
+    variable.factor = FALSE,
+    variable.name = "condition",
+    na.rm = TRUE
+  )
+
+# subset to the conditions and add labels
+#flagmethod_delta <-
+#  merge(
+#    x = flagmethod_delta,
+#    y = medicalcoder::get_charlson_index_scores()[c("condition", "condition_description")],
+#    by = "condition"
+#  )
+
+flagmethod_delta <-
+  flagmethod_delta[
+   , .(N = sum(value), p = mean(value)),
+   by = .(algo, flag.method, condition)
+ ]
+
+flagmethod_delta[,
+  flag.method := factor(flag.method, levels = c("current", "cumulative"))
+]
+
+flagmethod_delta <-
+  flagmethod_delta[
+    !(condition %in% c("readmission_index", "mortality_index",
+        "cci", "num_cmrb", "age_score"))
+  ]
+
+flagmethod_delta[condition == "cmrb_flag"]
+```
+
+@fig-flagmethod-delta shows the number of encounters flagged with a given
+condition for `flag.method = 'current'` and `flag.method = 'cumulative'` for the
+Charlson condition flagged by `medicalcoder::comorbidities()`.
+
+```{r}
+#| label: fig-flagmethod-delta
+#| echo: false
+g <- function(data) {
+  ggplot2::ggplot(data = data) +
+    ggplot2::theme_bw() +
+    ggplot2::aes(x = condition, y = N, fill = flag.method) +
+    ggplot2::geom_col(position = ggplot2::position_dodge()) +
+    ggplot2::scale_fill_manual(
+      name = "Flag Method",
+      values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
+    ) +
+    ggplot2::scale_y_continuous(
+      name = "Encounters",
+      label = scales::label_comma()
+    ) +
+    ggplot2::theme(
+      axis.title.y = ggplot2::element_blank(),
+      legend.position = "bottom",
+    ) +
+    ggplot2::facet_wrap( ~ algo, scales = "free_y") +
+    ggplot2::coord_flip()
+}
+g(flagmethod_delta[algo == "charlson"])
+g(flagmethod_delta[algo == "exlihauser"])
+g(flagmethod_delta[algo == "pcccv2.0"])
+g(flagmethod_delta[algo == "pcccv3.1"])
+```
+
+Diabetes is the most interesting, as we account for a patient history, the
+number of encounters flagged as having uncomplicated diabetes decreases and the
+number of encounters flagged as having complicated diabetes increases.
+
+```{r}
+#| label: build-dm
+#| include: false
+dm <-
+  merge(
+    x = medicalcoder_charlson_current,
+    y = medicalcoder_charlson_cumulative,
+    by = c("subject_id", "enc_seq"),
+    suffix = c("_current", "_cumulative")
+  )
+# find a record with a change from uncomplicated to complicated dm
+
+# sanity checks
+dm[dm_current  == 1, all(dmc_current == 0)]
+dm[dmc_current == 1, all(dm_current == 0)]
+```
+
+```{r}
+#| label: find-dm-patient-example
+#| include: false
+dm[,
+  .(
+    V1 = mean(dm_current + dmc_current),
+    V2 = mean(dm_cumulative + dmc_cumulative),
+    .N
+   ),
+ by = .(subject_id)
+ ][, d := V2 - V1][d > 0 & N > 5]
+
+s10009326 <-
+  dm[
+    subject_id == 10009326,
+    .SD,
+    .SDcols = patterns("enc_seq|^dm")
+  ]
+```
+
+An example of a patient record where on an encounter level flagging approach
+diabetes will be missed entirely and the severity is inaccurate is in
+@tbl-dm-10009326.  Subject 10009326 had `r nrow(s10009326)` encounters.  At
+least one ICD code mapping to uncomplicated diabetes under the Charlson _a la_
+@quan2005 appeared in `r sum(s10009326$dm_current)` encounters, and
+`r sum(s10009326$dmc_current)` encounter for complicated diabetes.  Under an
+encounter-level only flagging of comorbidities, this patient would erroneously
+not have diabetes of any kind on
+`r nrow(s10009326) - sum(s10009326$dm_current) - sum(s10009326$dmc_current)`
+encounters.  Using the longitudinal flagging in `medicalcoder::comorbidities()`
+via `flag.method = 'cumulative'`, we have diabetes flagged on all encounters,
+and the severity correctly marked for encounters later in the patient record.
+
+```{r}
+#| label: tbl-dm-10009326
+#| tbl-cap: "Diabetes without complications (dm) and diabetes with complications (dmc) by flagging method."
+#| results: "asis"
+#| echo: false
+s10009326[
+  ,
+  lapply(.SD, function(x) data.table::fifelse(x == 1, "X", "")),
+  .SDcols = patterns("^dm"),
+  by = .(enc_seq)
+  ] |>
+kableExtra::kbl(
+  x = _,
+  format = "latex",
+  booktabs = TRUE,
+  align = "ccccc",
+  row.names = FALSE
+  ) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "scale_down")
+)
 ```
 
 
+# Time Required To Compute
 
+The amount of time required to apply the several different comorbidity
+algorithms to the MIMIC-IV data are shown in @tbl-time-to-compute.
+
+```{r}
+#| label: tbl-time-to-compute
+#| tbl-cap: "Time, in seconds, to process the MIMIC-IV data."
+#| results: "asis"
+#| echo: false
+
+ttc <-
+  lapply(objs, attr, "tictoc") |>
+  lapply(as.numeric) |>
+  data.table::as.data.table() |>
+  data.table::melt(measure.vars = names(objs), variable.factor = FALSE)
+
+ttc[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(variable, "_")]
+ttc[, variable := NULL]
+ttc[, value := sprintf("%.2f", value)]
+
+ttc <-
+  data.table::dcast(ttc, Algorithm + `Flag Method` ~ Tool, value.var = "value")
+ttc[, `Flag Method` := factor(`Flag Method`, levels = c("current", "cumulative"))]
+
+data.table::setcolorder(
+  ttc,
+  c("Algorithm", "Flag Method", "medicalcoder", "comorbidity", "mimiciv", "pccc")
+)
+
+data.table::setnames(
+  ttc,
+  old = c("medicalcoder", "comorbidity", "mimiciv", "pccc"),
+  new = c("medicalcoder::comorbidities()", "comorbidity::comorbidity()", "MIMIC-IV Code", "pccc::ccc()")
+  )
+
+data.table::setkey(ttc, Algorithm, `Flag Method`)
+
+kableExtra::kbl(
+  x = ttc[, 2:6],
+  format = "latex",
+  booktabs = TRUE,
+  row.names = FALSE,
+  col.names = c("", names(ttc)[3:6]),
+  align = "lrrrr"
+  ) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "scale_down")
+) |>
+kableExtra::pack_rows(
+  index = table(ttc$Algorithm)
+)
+```
 
 # Session Info
 
