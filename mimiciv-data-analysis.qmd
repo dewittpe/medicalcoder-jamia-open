@@ -6,12 +6,13 @@ format:
   pdf:
     toc: true
     toc-depth: 4
-    lof: false
-    lot: false
+    lof: true
+    lot: true
     number-sections: true
     keep-tex: true
     include-in-header:
       text: |
+        \usepackage{float}
         \usepackage[table]{xcolor}
         \usepackage{threeparttable}
         \usepackage{longtable}
@@ -46,9 +47,10 @@ loadNamespace('data.table')
 
 # Objective and Setup
 
-This supplement is used to showcase `medicalcoder::comorbidities()` on its own
-and against alternative tools for applying Charlson, Elixhauser, and Pediatric
-Complex Chronic Conditions (PCCC) to a data set.
+This supplement provides reproducible validation and benchmarking of
+`medicalcoder::comorbidities()` using MIMIC-IV v3.1 data, including algorithmic
+agreement with established implementations and demonstration of longitudinal
+flagging behavior.
 
 # Materials and Methods
 
@@ -72,14 +74,6 @@ set by PhysioNet[^1].
 
 [^1]: https://physionet.org/content/mimiciv/3.1/
 
-__NOTE:__
-The MIMIC-IV data consists of only
-adult patients.  The PCCC is intended for pediatrics and may not be of interest
-in adult data.  However,
-In this work we are focused on the use of the _medicalcoder_ package and so
-we use adult data here to illustrate the use the package, not to make clinical
-inference.
-
 ## Comorbidity Algorithms
 
 Within the _medicalcoder_ package are implimentations for several variants of
@@ -88,6 +82,12 @@ the Charlson, Elixhauser, and PCCC comorbidity algorithms,
 
 For this supplement we focus on `charlson_quan2005`,
 `elixhauser_quan2005`, `pccc_v2.0`, and `pccc_3.1`.
+
+__NOTE:__
+The MIMIC-IV data consists of only adult patients.
+Although PCCC was designed for pediatric populations, adult MIMIC-IV data are
+used here solely to demonstrate algorithmic implementation.
+
 
 ```{r}
 #| label: tbl-comorbidity-methods
@@ -329,6 +329,13 @@ mimicivDT[, cid := paste(subject_id, enc_seq, sep = "__")]
 ```{r}
 #| label: data-structure
 str(mimicivDT)
+```
+
+```{r}
+#| label: save-mimicivDT
+#| include: false
+# save this data set to disk so it can be used when writting the manuscript
+saveRDS(mimicivDT, file = "mimicivDT.rds")
 ```
 
 There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
@@ -1743,6 +1750,8 @@ objs <-
     "pccc_pcccv2.0_cumulative"
   ) |>
   sapply(get)
+
+saveRDS(object = objs, file = "objs.rds")
 ```
 
 Let's look at the impact of longitudinal flagging vs encounter level flagging of
@@ -1831,7 +1840,11 @@ flagmethod_plot <- function(data) {
 ```
 ```{r}
 #| label: fig-flagmethod-delta-charlson
-#| fig-cap: "Number of encounters flagged with a Charlson comorbidities based on encounter only (flag method = current) verses the whole patient history (flag method = cumulative)."
+#| fig-scap: Charlson comorbidities by flag.method.
+#| fig-cap: |
+#|   Number of encounters flagged with a Charlson comorbidities based on
+#|   encounter only (`flag.method = "current"`) verses the whole patient history
+#|   (`flag.method = "cumulative"`).
 #| fig-width: 7
 #| fig-height: 7
 #| echo: false
@@ -1927,6 +1940,7 @@ For Elixhauser, @fig-flagmethod-delta-elixhauser, shows similar behavior for
 diabetes as Charlson.
 ```{r}
 #| label: fig-flagmethod-delta-elixhauser
+#| fig-scap: Elixhauser comorbidities by flag.method.
 #| fig-cap: |
 #|    Number of encounters flagged with a Elixhauser comorbidities based on
 #|    encounter only (`flag.method = current`) verses the whole patient history
@@ -1945,6 +1959,7 @@ are handled have considerable impact on the flagged comorbidities.
 
 ```{r}
 #| label: fig-flagmethod-delta-pcccv2.0
+#| fig-scap: PCCC v2 comorbidities by flag.method.
 #| fig-cap: |
 #|    Number of encounters flagged with a PCCC v2 comorbidities based on
 #|    encounter only (`flag.method = current`) verses the whole patient history
@@ -1957,6 +1972,7 @@ flagmethod_plot(flagmethod_delta[algo == "pcccv2.0"])
 
 ```{r}
 #| label: fig-flagmethod-delta-pcccv3.1
+#| fig-scap: PCCC v3 comorbidities by flag.method.
 #| fig-cap: |
 #|    Number of encounters flagged with a PCCC v3 comorbidities based on
 #|    encounter only (`flag.method = current`) verses the whole patient history
@@ -2023,7 +2039,7 @@ Filter(f = function(x) sum(x) > 0, s10728333)
 # metabolic, respriatory, any_tech, num_cmrb, misc,
 ```
 
-Let's look at the records for `subject_id = 10728333`.  @tbl-s10728333 shows the
+Let's look at the records for `subject_id = 10728333`.  \ref{tbl:s10728333} shows the
 flagging of metabolic, miscellaneous, and respiratory conditions for PCCC v3
 using `flag.method = 'current'` or `flag.method = 'cumulative'`.  For this
 patient, on encounter 1, a technology-dependent ICD code related to a
@@ -2046,31 +2062,11 @@ comorbidity until encounter 6, and would incorrectly classify as
 non-technology-dependent until the final encounter.
 
 ```{r}
-#| label: tbl-s10728333
-#| tbl-scap: "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject_id 10728333."
-#| tbl-cap: |
-#|   Flagging of comorbidities under PCCC v3 for MIMIC-IV subject_id 10728333.
-#|   Cells marked with DxPr denote that the comorbidity was flagged due to a ICD
-#|   code that is not technology-dependent.  Tech denotes flagging of a comorbidity
-#|   base on the presence of at least one technology-dependent ICD code and the
-#|   presence of at least one non-technology-dependent code for another comorbidity.
-#|   DxPrTech denotes flagging due to both
-#|   technology-dependent and non-technology-dependent ICD codes.  Under the "Any
-#|   Tech" columns we mark the encounters where some tech dependence is identified.
-#|   For this patient, on encounter 1, a technology-dependent ICD code for a
-#|   respiratory comorbidity was found in the subject's record.  Because no
-#|   non-technology-dependent code was observed on encounter 1, under PCCC v3 this
-#|   subject has no comorbidities for encounter 1.  This persists for encounters 2
-#|   and 3 with respect to respiratory and on encounter 3 for miscellaneous as
-#|   well.  On encounter 4 a non-technology-dependent code for a metabolic
-#|   comorbidity was reported.  Under a cumulative flagging paradigm the
-#|   miscellaneous and respiratory comorbidities are also flagged as the reported
-#|   codes from encounters 3 and 1 have been carried forward respectively.  Under
-#|   the "current" flagging method miscellaneous is never flagged as the
-#|   technology-dependent code never occurs on the same encounter as the
-#|   non-technology-dependent code.
+#| label: s10728333
 #| echo: false
 #| results: "asis"
+# NOTE: not using the quarto yaml for the table crossref so I can use short
+# captions
 DT0 <- s10728333[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
 DT1 <-
   DT0[
@@ -2126,7 +2122,9 @@ kableExtra::kbl(
   booktabs = TRUE,
   row.names = FALSE,
   align = rep("c", ncol(DT)),
-  escape = FALSE
+  escape = FALSE,
+  caption.short = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333.",
+  caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to a ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity base on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
   ) |>
 kableExtra::kable_styling(
   latex_options = c("striped", "scale_down", "HOLD_position")
@@ -2230,8 +2228,8 @@ kableExtra::pack_rows(
 
 # Session Info
 
-@tbl-session-info reports details on the machine, R,  and the R packages used to
-produce this document.
+@tbl-session-info-platform and @tbl-session-info-packages reports details on the
+machine, R, and the R packages used to produce this document.
 
 ```{r}
 #| label: mem-total-helper
@@ -2271,30 +2269,62 @@ mem_total_gb <- format_gb(mem_total_bytes())
 ```
 
 ```{r}
-#| label: tbl-session-info
-#| tbl-cap: "Details on the machine and R session used to generate this document."
+#| label: tbl-session-info-platform
+#| tbl-cap: "Details on the machine to generate this document."
 #| echo: false
 #| results: "asis"
 si <- sessioninfo::session_info()
 si$platform$RAM <- mem_total_gb
-si <-
+
+si$platform <-
   data.table::data.table(
-    V1 = c(names(si$platform), si$packages$package),
-    V2 = c(do.call(c, si$platform), si$packages$loadedversion)
+    V1 = names(si$platform),
+    V2 = do.call(c, si$platform)
   )
+
+si$platform <-
+  si$platform[
+    V1 %in% c("version", "os", "system", "RAM", "date", "pandoc", "quarto")
+  ][c(1:3, 7, 4:6)]
+
 kableExtra::kbl(
-  x = si,
+  x = si$platform,
   format = "latex",
   row.names = FALSE,
-  col.names = c("Setting/Package", "Value/Version"),
-  booktabs = TRUE,
-  longtable = TRUE
+  col.names = c("Setting", "Value"),
+  booktabs = TRUE
+) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "HOLD_position")
+)
+```
+
+```{r}
+#| label: tbl-session-info-packages
+#| tbl-cap: "R packages and versions used to generate this document."
+#| echo: false
+#| results: asis
+pkgs <- as.data.frame(si$packages)[c("package", "loadedversion")]
+blks <- 4
+n <- ceiling(nrow(pkgs) / blks)
+mat <- matrix("", nrow = n, ncol = 2 * blks)
+for (i in seq_len(nrow(pkgs))) {
+  rw  <- (i - 1) %% n + 1
+  blk <- (i - 1) %/% n
+  cl  <-  blk * 2 + 1
+  mat[rw, cl:(cl+1)] <- unlist(pkgs[i, ])
+}
+
+kableExtra::kbl(
+  x = mat,
+  col.names = NA, #rep("", 8),
+  format = "latex",
+  booktabs = TRUE
 ) |>
 kableExtra::kable_styling(
   latex_options = c("striped", "HOLD_position")
 ) |>
-kableExtra::pack_rows(group_label = "Platform", start_row =  1, end_row = 12) |>
-kableExtra::pack_rows(group_label = "Packages", start_row = 13, end_row = nrow(si))
+kableExtra::add_header_above(rep(c("Package Version" = 2), 4))
 ```
 
 # References
