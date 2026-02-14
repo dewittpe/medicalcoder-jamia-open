@@ -9,7 +9,7 @@ format:
     lof: true
     lot: true
     number-sections: true
-    keep-tex: true
+    keep-tex: false
     include-in-header:
       text: |
         \usepackage{float}
@@ -161,9 +161,7 @@ stopifnot(
 We only need four of the MIMIC-IV hospital datasets:
 `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`.
 
-
-
-and do some light formating to before
+We will do some light formating to before
 using `medicalcoder::comorbidities()` to flag comorbidities.  Start by importing
 the `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`, datasets.
 
@@ -318,7 +316,10 @@ mimicivDT <-
 data.table::setkey(mimicivDT, subject_id, admittime, hadm_id)
 
 # set an encounter sequence variable. This works because the data has been
-# sorted by subject_id, admittime
+# sorted by subject_id, admittime.  NOTE: admittime can be used in the calls to
+# medicalcoder::comorbidities() but it there is additional overhead and
+# computational expense when sorting and joining by POSIXct variable.  The
+# enc_seq achieves the same utility with lower computational overhead.
 mimicivDT[, enc_seq := cumsum(!duplicated(hadm_id)), by = .(subject_id)]
 
 # For some of the methods, only one id variable is allowed so we create a
@@ -2163,6 +2164,22 @@ subset(
 )
 ```
 
+```{r}
+#| label: s10728333-v2
+#| include: false
+#| eval: false
+s10728333v2 <-
+  merge(
+    x = medicalcoder_pcccv2.0_current[subject_id == 10728333],
+    y = medicalcoder_pcccv2.0_cumulative[subject_id == 10728333],
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_current", "_cumulative")
+ )
+Filter(f = function(x) sum(x) > 0, s10728333v2)
+s10728333v2[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
+```
+
 
 ## Time Required To Compute
 
@@ -2225,6 +2242,57 @@ kableExtra::pack_rows(
   index = table(ttc$Algorithm)
 )
 ```
+
+## Summarizing Results
+
+The _medicalcoder_ package provides an S3 summary method for the objects
+returned by `medicalcoder::comorbidities()`.  The summaries differ slightly
+depending of the comorbidity algorithm (`method`). Charlson and Elixhauser
+return lists with multiple summaries and the PCCC return is a data.frame of
+summaries.
+
+When the `flag.method = 'current'`, the `conditions` element of the summary for
+the Charlson and Elixhauser comorbidities is a data.frame with counts and
+percentages of the distinct `id.vars` with a given comorbidity, and counts of
+comorbidities.  For PCCC v2 and v3, the return is only this data.frame.   When
+the flag method is cumulative, a warning is given stating that the summary may
+not be meaningful as it is an encounter level summary.
+
+```{r}
+#| label: structure-of-summaries
+str(summary(medicalcoder_charlson_current), max.level = 1)
+str(summary(medicalcoder_elixhauser_current), max.level = 1)
+str(summary(medicalcoder_pcccv2.0_current), max.level = 1)
+str(summary(medicalcoder_pcccv3.1_current), max.level = 1)
+
+str(summary(medicalcoder_charlson_cumulative), max.level = 0)
+```
+
+The data.frames are provided so that end users can easily build their own
+summary tables using tools such as _knitr_ [@r-knitr] and _kableExtra_
+[@r-kableExtra]
+
+```{r}
+#| label: tbl-medicalcoder-pcccv2-summary
+#| tbl-cap: |
+#|   Code and resulting table for a summary of the PCCC v2 conditions flagged in
+#|   the MIMIIC-IV dataset.
+#| echo: true
+#| results: asis
+kableExtra::kbl(
+  x = summary(medicalcoder_pcccv2.0_current)[, 2:4],
+  format = "latex",
+  booktabs = TRUE,
+  col.names = c("", "Encounters", "Percent"),
+  digits = 2
+) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "scale_down", "HOLD_position")
+) |>
+kableExtra::pack_rows("Conditions", start_row =  1, end_row = 13) |>
+kableExtra::pack_rows("Total Conditions", start_row = 14, end_row = 24)
+```
+
 
 # Session Info
 
