@@ -7,7 +7,6 @@ number-sections: false
 
 format:
   docx:
-    fig-cap-location: top
     reference-doc: template.docx
 
 bibliography: references.bib
@@ -17,6 +16,7 @@ csl: jamia.csl
 ```{r}
 #| label: setup
 #| include: false
+#reference-doc: template.docx
 stopifnot(packageVersion("medicalcoder") >= "0.7.0")
 options(qwraps2_markup = "markdown")
 loadNamespace("data.table")
@@ -53,9 +53,9 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Word count:**]{.underline} XXXXX / 2000 (including R chunks, excluding tables)
 
-[**Tables:**]{.underline} X / 2
+[**Tables:**]{.underline} 2 / 2
 
-[**Figures:**]{.underline} X / 3
+[**Figures:**]{.underline} 1 / 3
 
 [**Supplementary material:**]{.underline}
 
@@ -69,47 +69,33 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
 # Abstract {.unnumbered}
 
-Word count: XXX / 150
+Word count: 145 / 150
 
 **Objectives:**
 Comorbidity algorithms derived from International Classification of Diseases
 (ICD) codes are central to risk adjustment and cohort characterization, yet
-existing software implementations are fragmented, inconsistently handle mixed
-ICD-9 and ICD-10 data, and typically ignore longitudinal patient histories.
-We present _medicalcoder_ to address these limitations.
+existing software is fragmented, inconsistently handles mixed ICD-9 and ICD-10
+data, and typically operates at the encounter level. We developed _medicalcoder_
+to address these limitations.
 
 **Materials and Methods:**
-We developed _medicalcoder_, a self-contained R package with an internal ICD
-database and a unified interface for applying
-`r length(medicalcoder:::comorbidities_methods())` variants of the Charlson,
-Elixhauser, and Pediatric Complex Chronic Conditions algorithms. The package
-supports full and compact ICD codes, mixed ICD versions, present-on-admission
-and primary diagnosis indicators, and both encounter-level and cumulative
-longitudinal flagging.
+_medicalcoder_ is a self-contained R package with an internal ICD database and
+unified interface for applying multiple variants of the Charlson, Elixhauser,
+and Pediatric Complex Chronic Conditions algorithms. It supports full and
+compact ICD codes, mixed ICD versions, present-on-admission and primary
+diagnosis indicators, and both encounter-level and cumulative longitudinal
+flagging.
 
 **Results:**
-Outputs are consistent with published SAS, SQL, and R reference implementations.
-_medicalcoder_ only depends on R &geq; 3.5.0 while dynamically leveraging
-_data.table_ or _dplyr_ when available, yielding substantial performance
-improvements.  Flagging comorbidities in longitudinal data results in greater
-sensitivity, especially for PCCC version 3, than ad hoc aggregations after
-ecounter level flagging.
+The package requires only R ≥ 3.5.0. Outputs are consistent with published
+reference implementations. Outputs are consistent with published reference
+implementations. Longitudinal flagging increases sensitivity compared with
+aggregation of encounter-level flags.
 
 **Conclusions:**
-_medicalcoder_ is a fully self-contained R package that provides a unified,
-reproducible framework for applying multiple comorbidity algorithms to modern
-clinical datasets. By supporting mixed ICD-9 and ICD-10 data, full and compact
-codes, present-on-admission and primary diagnosis indicators, and cumulative
-longitudinal flagging, _medicalcoder_ addresses both methodological and
-practical limitations of existing implementations.
+_medicalcoder_ provides a unified, reproducible framework for ICD-based
+comorbidity assessment in modern clinical datasets.
 
-The ability to propagate clinically relevant conditions across patient histories
-improves comorbidity ascertainment in longitudinal data and reduces reliance on
-ad hoc preprocessing or repeated method calls. Combined with extensive
-validation against published reference implementations and efficient performance
-at scale, _medicalcoder_ enables accurate, transparent, and reproducible
-comorbidity assessment across a wide range of research and deployment
-environments.
 
 {{< pagebreak >}}
 
@@ -159,13 +145,14 @@ This leaves users to reconcile mixed ICD-version datasets manually. Input
 requirements vary across utilities, making it difficult to apply multiple
 algorithms consistently.
 
-To our knowledge, no current implementation accounts for longitudinal data.
-While the AHRQ [@ahrq2025] Elixhauser variant accounts for present-on-admission
-(POA) indicators and exemptions, it does not propagate conditions across
-encounters within a patient record. Conditions that arise during acute care and
-should not be considered comorbidities for the present encounter are handled via
-POA indicators. However, unless the relevant ICD codes are flagged as POA on
-subsequent encounters, those comorbidities will not be flagged.
+Despite the importance of longitudinal data in modern EHR research, comorbidity
+software typically operates at the encounter level. While the AHRQ [@ahrq2025]
+Elixhauser variants account for present-on-admission (POA) indicators and
+exemptions, it does not propagate conditions across encounters within a patient
+record. Conditions that arise during acute care and should not be considered
+comorbidities for the present encounter are handled via POA indicators. However,
+unless the relevant ICD codes are flagged as POA on subsequent encounters, those
+comorbidities will not be flagged.
 
 There is a need for a tool that applies multiple comorbidity algorithms through
 a unified API while accounting for algorithm-specific nuances, ICD versions and
@@ -229,41 +216,10 @@ and the World Health Organization (WHO; calendar years `r who10`) are included,
 along with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`). The
 internal database will be extended as additional code sets are published.
 
-Three comorbidity algorithms, Charlson
-[@charlson1987;@deyo1992adapting;@ahrq2017;@quan2005;@quan2011;@glasheen2019],
-Elixhauser [@elixhauser1998;@quan2005;@ahrq2025], and Pediatrics Complex Chronic
-Conditions (PCCC) [@feudtner2014pediatric;@feinstein2024pediatric], each with
-multiple variants, have been implemented in _medicalcoder_ and are accessible via
-the `method` argument of `medicalcoder::comorbidities()`, Table 1.
 
-<!-- for reasons I can't explain, I cannot get the left justfication of the
-table to persist in a table div in the docx file.  By keeping it out of a table
-div the text justification persists -->
-
-**Table 1:** Comorbidity methods implemented in _medicalcoder_ version `r packageVersion("medicalcoder")`.
-
-| Comorbidity Method                       | Notes                                                                                                   |
-| :-----                                   | :---------                                                                                              |
-| **Charlson**                             |                                                                                                         |
-| &nbsp;&nbsp; `charlson_deyo1992`         | ICD-9 codes defined in Table 1 of [@quan2005]                                                           |
-| &nbsp;&nbsp; `charlson_quan2005`         | ICD-9 and ICD-10 defined in Table 1 of [@quan2005]; index scoring as reported in Table 2 of [@quan2011] |
-| &nbsp;&nbsp; `charlson_quan2011`         | ICD-9 and ICD-10 defined in Table 1 of [@quan2005]; index scoring as reported in Table 2 of [@quan2011] |
-| &nbsp;&nbsp; `charlson_cdmf2019`         | ICD-9 and ICD-10 defined in [@glasheen2019]                                                             |
-| **Elixhauser**                           |                                                                                                         |
-| &nbsp;&nbsp; `elixhauser_elixhauser1988` | ICD-9 codes defined in Table 2 of [@quan2005]                                                           |
-| &nbsp;&nbsp; `elixhauser_ahrq_web`       | ICD-9 codes defined in Table 2 of [@quan2005]                                                           |
-| &nbsp;&nbsp; `elixhauser_quan2005`       | ICD-9 and ICD-10 defined in Table 2 of [@quan2005]                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq2022`       | ICD-10 codes from [@ahrq2025] for fiscal year 2022                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq2023`       | ICD-10 codes from [@ahrq2025] for fiscal year 2023                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq2024`       | ICD-10 codes from [@ahrq2025] for fiscal year 2024                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq2025`       | ICD-10 codes from [@ahrq2025] for fiscal year 2025                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq2026`       | ICD-10 codes from [@ahrq2025] for fiscal year 2026                                                      |
-| &nbsp;&nbsp; `elixhauser_ahrq_icd10`     | Any ICD-10 code from all `elixhauser_ahrqYYYY`                                                          |
-| **PCCC**                                 |                                                                                                         |
-| &nbsp;&nbsp; `pccc_v2.0`                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with [@dewitt2026pccc]                       |
-| &nbsp;&nbsp; `pccc_v2.1`                 | Extended set of `pccc_v2.0` pccc and supplements [@feudtner2014pediatric]                               |
-| &nbsp;&nbsp; `pccc_v3.0`                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with [@pcccv3sas]                            |
-| &nbsp;&nbsp; `pccc_v3.1`                 | Extended set of `pccc_v3.0` codes based on the supplements to [@feinstein2024pediatric]                 |
+Charlson variants include Deyo (1992), Quan (2005; 2011), and CDMF (2019).
+Elixhauser variants include the original Elixhauser (1988), Quan (2005), and AHRQ ICD-10 fiscal-year implementations (2022–2026).
+PCCC variants include versions 2.0, 2.1, 3.0, and 3.1.
 
 Development used R version 4.5.2. A comprehensive test suite runs as a GitHub
 Action on R oldrelease (4.4.3), release (4.5.2), and devel (what will become
@@ -321,7 +277,7 @@ encounters contain both ICD versions.
 
 A single function, `medicalcoder::comorbidities()`, is the interface for
 applying any of `r length(medicalcoder:::comorbidities_methods())` comorbidity
-algorithms implemented by _medicalcoder_ (Table 1). The input data are expected
+algorithms implemented by _medicalcoder_. The input data are expected
 to be in long format, one ICD code per row, with optional columns for
 identification variables (e.g., patient and encounter ids), ICD version (integer
 value 9 or 10), ICD type (1 for diagnostic code, 0 for procedure code), POA
@@ -329,58 +285,69 @@ indicator, and primary diagnosis indicator. The ICD codes can be full, compact,
 or a combination thereof. A single patient/encounter record may contain ICD-9,
 ICD-10, or both.
 
-A verbose example of calling `medicalcoder::comorbidities()`, including default
-values, follows.  Detailed data preperation and additional examples are in the
-supplement.
-
 ```{r}
-#| label: example-call
+#| label: examle-call
 #| eval: false
 medicalcoder::comorbidities(
-  data        = mimicivDT,  # object inheriting data.frame
-  icd.codes   = "icd_code", # character string name of icd codes in data
-  id.vars     = c("subject_id", "enc_seq"),
-  icdv.var    = "icd_version",
-  dx.var      = "dx",
-  poa         = 1L,    # consider all codes present on admission
-  age.var     = "age", # in years, only relevant to charlson
-  primarydx   = 0L,    # consider all diagnosis codes secondary diagnoses.
-  method      = "charlson_quan2005",
-  flag.method = "current" # (default) will flag comorbidities within each
-                          # unique data[id.vars].  "cumulative", will flag
-                          # comorbidities within each unique
-                          # data[id.vars[-length(id.vars)]]
-                          # sorted by data[id.vars[length(id.vars)]]
+ # Required inputs:
+  data      = ,   # object inheriting data.frame; one ICD code per row
+  icd.codes = ,   # character; name of column in data containing ICD codes
+  method    = ,   # <family>_<variant>, e.g., "charlson_quan2005"
+
+  # Optional inputs controlling grouping and code attributes:
+  id.vars   = NULL,  # character; encounter identifiers (see text below)
+
+  icdv.var  = NULL,  # character; column name for ICD version (9 or 10)
+  icdv      = NULL,  # integer; constant ICD version for all rows
+
+  dx.var    = NULL,  # character; column name indicating diagnosis (1), procedure (0)
+  dx        = NULL,  # integer; constant dx indicator for all rows
+
+  poa.var   = NULL,  # character; column name for present-on-admission indicator
+  poa       = NULL,  # integer; constant POA indicator for all rows
+
+  age.var   = NULL,  # character; column name for age in years (Charlson only)
+  age       = NULL,  # numeric; constant age in years (Charlson only)
+
+  primarydx.var = NULL, # character; column name indicating primary diagnosis
+  primarydx     = NULL, # integer; constant primary dx indicator
+
+  # Defaults:
+  flag.method   = "current", # "current" (encounter-level) or
+                             # "cumulative" (longitudinal)
+  full.codes    = TRUE, # reference data[[icd.codes]] against full ICD codes, e.g., C4A.111
+  compact.codes = TRUE, # reference data[[icd.codes]] against compact ICD codes, e.g., C4A111
+  subconditions = FALSE # PCCC only: return subcondition flags when available
 )
 ```
 
-Several function arguments in `medicalcoder::comorbidities()` are provided in
-paired forms (e.g., `dx` and `dx.var`, `icdv` and `icdv.var`). These pairs
-represent the same conceptual information at different levels of granularity.
-Arguments without the `.var` suffix specify dataset-level invariants, such as
-when all ICD codes in a dataset are diagnostic or belong to a single ICD
-version, whereas arguments with the `.var` suffix reference columns in the input
-data that encode row-level variation.
+Several arguments are provided in paired forms (e.g., `dx` and `dx.var`, `icdv`
+and `icdv.var`). These pairs represent the same conceptual information at two
+levels of granularity. Arguments without the `.var` suffix specify dataset-level
+invariants (e.g., all rows are ICD-10, or all rows are diagnoses), whereas
+arguments with the `.var` suffix reference columns in the input data that encode
+row-level variation.
 
 This design avoids requiring users to create constant-valued columns when
 dataset-level properties are already known, while still supporting heterogeneous
-datasets in which code attributes vary across rows.  When both forms of an
-argument are supplied, the `.var` version takes precedence and a warning is
-issued to alert the user to the override.
+datasets in which code attributes vary across rows. When both forms are
+supplied, the column-based form (e.g., `dx.var`) takes precedence and a warning
+is issued to indicate the override.
 
-The order the `id.vars` is optional when `flag.method = 'current'`.  Omision
-would treat the whole of `data` as a single encounter.  When flagging
-comorbidities in longitudinal data use `flag.method =
-"cumulative"` and the length of `id.vars` is expected to be at least 2.  The
-last entry in `id.vars` is used to sort the data chronologically within the
-other `id.vars`.
+The `id.vars` argument controls how comorbidities are summarized into encounter-
+level flags. When flag.method = "current", id.vars is optional: if omitted,
+the entire dataset is treated as a single encounter and a single row of flags is
+returned.
 
-For the MIMIC-IV data, we use a
-generated variable, `enc_seq`, which counts hospital admissions (`hadm_id`) by admission time,
-within a `subject_id`.  The `admittime` variable from the MIMIC-IV data could be
-used directly for this purpose, but the sorting and joining by a POSIXct
-variable requires aditional computational overhead which is eleviated by using
-the simple integer value `enc_seq`.
+For longitudinal flagging (`flag.method = "cumulative"`), `id.vars` must include
+at least two variables. The leading variables define the patient (or unit) and
+the final variable defines within-patient ordering. Specifically, the data are
+sorted by `id.vars`, and relevent ICD codes reported on encounter i are carried
+forward to encounters i+1, i+2, ... within the same patient history.
+
+The ordering variable may be a date/time (e.g., admission time) or a numeric
+sequence (e.g., encounter number). In large datasets, using an integer sequence
+often reduces overhead relative to sorting and joining on POSIXct timestamps.
 
 `medicalcoder::comorbidities()` returns a data.frame with addition metadata and
 class consistent with the input.  The data.frame has column(s) for the `id.vars`
@@ -388,10 +355,18 @@ and an indicator column each of the relevant comorbidities.  All returned
 data.frames include columns `num_cmrb` for the number of comorbidities flagged
 for the `id.vars` and `cmrb_flag`, an indicator column for at least one
 comorbidity.  _medicalcoder_ provides a S3 `summary` method for the returns to
-generate tables of the counts and percentage of encounters flagged, Table 2.
+generate tables of the counts and percentage of encounters flagged, Table 1.
 
-**Table 2:** Counts and percentages of encounters flag with Charlson
-comorbidities via `medicalcoder::comorbidities()`.
+<!--
+using the quarto native tbl- for crossref is causing an error in the word doc.
+hardcoding the table number as a result
+-->
+
+::: {custom-style="tablecap"}
+**Table 1:** Counts and percentages of encounters within the MIMIC-IV dataset
+flagged with Charlson comorbidities via `medicalcoder::comorbidities()`.
+:::
+
 ```{r}
 #| label: charlson-summary
 #| echo: false
@@ -401,30 +376,53 @@ data.table::setDT(cc)
 cc[, condition := NULL]
 cc[, count := qwraps2::frmt(as.integer(count))]
 cc[, percent := qwraps2::frmt(percent)]
+cc[, rgp := data.table::fifelse(grepl(">=", condition_description), "Total Conditions", "Condition")]
 cc[, condition_description := sub(">=", "≥", condition_description)]
+data.table::setnames(cc, old = c("count", "percent"), new = c("Encounters", "Percent"))
 
-qwraps2::qable(cc[, 2:3],
-  rgroup = c("Conditions" = 17, "Total Conditions" = 9),
-  rnames = cc[["condition_description"]],
-  kable_args = list(
-    format = "markdown",
-    rows.names = FALSE
-  )
+gt::gt(
+  data = cc,
+  rowname_col = "condition_description",
+  groupname_col = "rgp"
 )
 ```
 
-When working with longitudinal data, flagging comorbidities by cumulative
-sumation of flags over encounters can fail, Table 2. This table focuses on PCCC
-v3, but the issue can occur with Elixhauser from the AHRQ post 2022 where
-present-on-admission requirements are considered in the flagging of the codes.
-In the example shown in Table 2, the subject had ICD codes mapping to
-respiratory and miscellaneous comorbidities on encounters 1 and 3 of 13 total
-encounters.  Due to the nauces of the PCCC v3 method, those do not flag as
-comorbidities since no non-technology-dependent code is also present in the
-encounter.  It is not until encounter 4 when a non-technology-dependent code for
-a metabolic condition is reported that the respiratory and miscellaneous
-conditions are also flagged under the `flag.method = 'cumulative'` paradigm but
-not under `flag.method = 'current'`.
+Finally, note that longitudinal flagging is algorithm-dependent. For example,
+some PCCC v3 conditions depend on whether technology-dependent codes co-occur (or
+eventually co-occur) with non–technology-dependent codes.  Also, Elixhauser from
+AHRQ post 2022 account for POA status of ICD codes.
+In these cases, naïve
+post hoc accumulation of encounter-level flags can miss conditions (Table 2); using
+`flag.method = "cumulative"` ensures the algorithm’s longitudinal logic is
+applied consistently.
+
+<!--
+using the quarto native tbl- for crossref is causing an error in the word doc.
+hardcoding the table number as a result
+-->
+
+::: {custom-style="tablecap"}
+**Table 2:** Flagging of comorbidities under PCCC v3 for MIMIC-IV subject
+10728333. Cells marked with DxPr denote that the comorbidity was flagged due to
+a ICD code that is not technology-dependent.  Tech denotes flagging of a
+comorbidity base on the presence of at least one technology-dependent ICD
+code and the presence of at least one non-technology-dependent code for
+another comorbidity. DxPrTech denotes flagging due to both
+technology-dependent and non-technology-dependent ICD codes.  Under the Any
+Tech columns we mark the encounters where some tech dependence is identified.
+For this patient, on encounter 1, a technology-dependent ICD code for a
+respiratory comorbidity was found in the subject's record.  Because no
+non-technology-dependent code was observed on encounter 1, under PCCC v3 this
+subject has no comorbidities for encounter 1.  This persists for encounters 2
+and 3 with respect to respiratory and on encounter 3 for miscellaneous as
+well.  On encounter 4 a non-technology-dependent code for a metabolic
+comorbidity was reported.  Under a cumulative flagging paradigm the
+miscellaneous and respiratory comorbidities are also flagged as the reported
+codes from encounters 3 and 1 have been carried forward respectively.  Under
+the 'current' flagging method miscellaneous is never flagged as the
+technology-dependent code never occurs on the same encounter as the
+non-technology-dependent code.
+:::
 
 ```{r}
 #| label: flagging-table
@@ -486,9 +484,8 @@ DT1[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ft
 DT1[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
 DT1[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
 
-cap <- "Table 2: Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to a ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity base on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
 DT1 |>
-  gt::gt(caption = cap) |>
+  gt::gt(caption = "") |>
   gt::cols_align(align = "center") |>
   gt::tab_spanner("Metabolic", columns = c(metabolic__current, metabolic__cumulative)) |>
   gt::tab_spanner("Miscellaneous", columns = c(misc__current, misc__cumulative)) |>
@@ -518,7 +515,7 @@ ICD-10-CM codes C4A.x.  PCCC v2 flagging between _medicalcoder_ and _pccc_
 showed several technology-dependent and transplant errors in the mappings within
 _pccc_.
 
-In addition to _medicalcoder_ showing greater sensitivity, _medicalcoder_ 
+In addition to _medicalcoder_ showing greater sensitivity, _medicalcoder_
 demonstrated substantial performance advantages in large-scale testing (Figure 1).
 
 ```{r}
