@@ -76,7 +76,7 @@ set by PhysioNet[^1].
 
 ## Comorbidity Algorithms
 
-Within the _medicalcoder_ package are implimentations for several variants of
+Within the _medicalcoder_ package are implementations for several variants of
 the Charlson, Elixhauser, and PCCC comorbidity algorithms,
 (@tbl-comorbidity-methods) [@quan2005;@quan2011;@glasheen2019;@ahrq2025;@feudtner2014pediatric;@feinstein2024pediatric;@r-pccc;@feinstein2018pccc;@pcccv3sas].
 
@@ -161,7 +161,7 @@ stopifnot(
 We only need four of the MIMIC-IV hospital datasets:
 `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`.
 
-We will do some light formating to before
+We will do some light formatting to before
 using `medicalcoder::comorbidities()` to flag comorbidities.  Start by importing
 the `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`, datasets.
 
@@ -348,7 +348,7 @@ hospital encounters.
 ## Flagging comorbidities
 
 In the following we will outline how to apply the comorbidities methods to the
-`mimicivDT` data set.  We will define some wrapper functions to simpify calls.
+`mimicivDT` data set.  We will define some wrapper functions to simplify calls.
 We will return the results and time how long it takes to apply the methods.  We
 will flag the following comorbidities:
 
@@ -384,7 +384,7 @@ medicalcoder::comorbidities(
 
 The call to `medicalcoder::comorbidities()` has been designed to make calling
 multiple comorbidity methods and multiple flagging methods easy.  For this use
-case it would be programatically preferable to use a simple wrapper about
+case it would be programmatically preferable to use a simple wrapper about
 `medicalcoder::comorbidities()` to simplify the forthcoming calls.  However, we
 opt to repeat ourselves in the following calls for clarity and ease of selective
 reproduction by the reader.
@@ -512,7 +512,7 @@ attr(medicalcoder_elixhauser_cumulative, "tictoc") <-
 PCCC v2.0 has been built to be consistent with the output from `pccc::ccc()` and
 is called used `method = "pccc_v2.0"`.  Another option is `pccc_v2.1` which has
 additional ICD codes based on our interpretation of the intention of the
-mappings based on the suplements to @feudtner2014pediatric.
+mappings based on the supplements to @feudtner2014pediatric.
 
 ```{r}
 #| label: medicalcoder-pcccv2-current
@@ -620,9 +620,9 @@ attr(medicalcoder_pcccv3.1_cumulative, "tictoc") <-
 
 We use some of the SQL code for applying the Charlson
 comorbidity algorithm to the MIMIC-IV data provided by the MIT Laboratory for
-Computational Physilogy (MIT\_LCP) on
+Computational Physiology (MIT\_LCP) on
 [GitHub](https://github.com/MIT-LCP/mimic-code.git).  We stored the
-path to a local copy of the respository in the system environmental variable
+path to a local copy of the repository in the system environmental variable
 `MIMICIVCODE`.
 
 The SQL code for applying the Charlson comorbidities and checksum:
@@ -1066,7 +1066,7 @@ for (j in names(pccc_pcccv2.0_current)[-1]) {
 
 toc <- Sys.time()
 
-# cumflag
+# cumulative flag
 tic1 <- Sys.time()
 
 data.table::setDT(pccc_pcccv2.0_current)
@@ -1098,7 +1098,7 @@ attr(pccc_pcccv2.0_cumulative, "tictoc") <-
   difftime(toc1, tic1, units = "secs")
 ```
 
-## Consistency in Flags between Utilties
+## Consistency in Flags between Utilities
 
 ### `medicalcoder::comorbidities()` vs MIMIC-IV Code
 
@@ -1538,7 +1538,7 @@ mdcr_v_pccc_cumulative <-
   )
 ```
 
-The return from `pccc::ccc()` does not inlcude all the `subject_id` and
+The return from `pccc::ccc()` does not include all the `subject_id` and
 `enc_seq`.  The missing ones are all flagged as no comorbidities by
 `medicalcoder::comorbidities()`.  Implicitly this is the same result.
 
@@ -2276,7 +2276,7 @@ summary tables using tools such as _knitr_ [@r-knitr] and _kableExtra_
 #| label: tbl-medicalcoder-pcccv2-summary
 #| tbl-cap: |
 #|   Code and resulting table for a summary of the PCCC v2 conditions flagged in
-#|   the MIMIIC-IV dataset.
+#|   the MIMIC-IV dataset.
 #| echo: true
 #| results: asis
 kableExtra::kbl(

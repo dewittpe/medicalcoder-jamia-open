@@ -52,7 +52,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1945 / 2000 (including R chunks, excluding tables)
+[**Word count:**]{.underline} 1946 / 2000 (including R chunks, excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -140,18 +140,18 @@ characterization, and reproducible study of patient populations
 
 Existing software for flagging comorbidities typically implement one or two comorbidity
 algorithms, most often variants of Charlson and Elixhauser, and support either
-ICD-9 or ICD-10 (but not simultaneously), 
+ICD-9 or ICD-10 (but not simultaneously),
 and requires manual reconciliation of mixed-version datasets
 [@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity].
 
-Despite the importance of longitudinal data in modern EHR research, comorbidity
-software typically operates at the encounter level. While the AHRQ [@ahrq2025]
-Elixhauser variants account for present-on-admission (POA) indicators and
-exemptions, it does not propagate conditions across encounters within a patient
-record. Conditions that arise during acute care and should not be considered
-comorbidities for the present encounter are handled via POA indicators. However,
-unless the relevant ICD codes are flagged as POA on subsequent encounters, those
-comorbidities will not be flagged.
+Despite the importance of longitudinal data in modern medical research,
+comorbidity software typically operates at the encounter level. While the AHRQ
+[@ahrq2025] Elixhauser variants account for present-on-admission (POA)
+indicators and exemptions, it does not propagate conditions across encounters
+within a patient record. Conditions that arise during acute care and should not
+be considered comorbidities for the present encounter are handled via POA
+indicators. However, unless the relevant ICD codes are flagged as POA on
+subsequent encounters, those comorbidities will not be flagged.
 
 There is a need for a tool that applies multiple comorbidity algorithms through
 a unified API while accounting for algorithm-specific nuances, ICD versions and
@@ -216,15 +216,16 @@ along with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`). The
 internal database will be extended as additional code sets are published.
 
 
-Charlson variants include Deyo (1992), Quan (2005; 2011), and CDMF (2019).
-Elixhauser variants include the original Elixhauser (1988), Quan (2005), and AHRQ ICD-10 fiscal-year implementations (2022–2026).
-PCCC variants include versions 2.0, 2.1, 3.0, and 3.1.
+Charlson variants include Deyo (as denoted in @quan2005), Quan (2005; 2011), and
+CDMF (2019). Elixhauser variants include the original Elixhauser (1988), AHRQ
+Web (ICD-9 based as denotd in @quan2005), Quan (2005), and AHRQ ICD-10
+fiscal-year implementations (2022–2026). PCCC variants include versions 2.0,
+2.1, 3.0, and 3.1.
 
 Development used R version 4.5.2. A comprehensive test suite runs as a GitHub
-Action on R oldrelease (4.4.3), release (4.5.2), and devel (what will become
-4.6.0). An additional test suite runs on demand for all released versions of R
-&geq; 3.5.0 without suggested packages, and for versions &geq; 4.4.0 with
-suggested packages[^b].
+Action and on the Comprehensive R Archive Network (CRAN). An additional test
+suite runs on demand for all released versions of R &geq; 3.5.0 without
+suggested packages, and for versions &geq; 4.4.0 with suggested packages[^b].
 
 [^b]: https://github.com/dewittpe/medicalcoder/tree/main/testing
 
@@ -624,6 +625,9 @@ The _medicalcoder_ R package is available from the Comprehensive R Archive Netwo
 (CRAN) at https://cran.r-project.org/package=medicalcoder. Developmental
 versions, additional testing suites, benchmarking, and examples are on GitHub at
 https://github.com/dewittpe/medicalcoder/.
+
+The MIMIC-IV v3.1 data is available from PhysioNet at
+https://physionet.org/content/mimiciv/3.1/.
 
 [**Contributorship Statement:**]{.underline} PED designed and developed the
 _medicalcoder_ R package and drafted the manuscript. SR provided critical code
