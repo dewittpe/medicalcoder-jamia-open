@@ -2343,6 +2343,7 @@ mem_total_gb <- format_gb(mem_total_bytes())
 #| results: "asis"
 si <- sessioninfo::session_info()
 si$platform$RAM <- mem_total_gb
+saveRDS(si, "si.rds")
 
 si$platform <-
   data.table::data.table(

@@ -23,6 +23,7 @@ loadNamespace("data.table")
 loadNamespace("medicalcoder")
 mimicivDT <- readRDS("mimicivDT.rds")
 objs <- readRDS("objs.rds")
+si <- readRDS("si.rds")
 ```
 
 **Authors**: Peter E. DeWitt^1^, PhD; Seth Russell^1^, MS; Margaret N. Rebull^1^, MA; Tellen D. Bennett^1,2^, MD, MS
@@ -69,7 +70,7 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
 # Abstract {.unnumbered}
 
-Word count: 145 / 150
+Word count: 149 / 150
 
 **Objectives:**
 Comorbidity algorithms derived from International Classification of Diseases
@@ -88,9 +89,9 @@ flagging.
 
 **Results:**
 The package requires only R ≥ 3.5.0. Outputs are consistent with published
-reference implementations. Outputs are consistent with published reference
-implementations. Longitudinal flagging increases sensitivity compared with
-aggregation of encounter-level flags.
+reference implementations. Longitudinal flagging captured additional
+comorbidities not identified through naïve aggregation of encounter-level flags,
+particularly for algorithms incorporating POA or technology-dependent logic.
 
 **Conclusions:**
 _medicalcoder_ provides a unified, reproducible framework for ICD-based
@@ -139,11 +140,9 @@ characterization, and reproducible study of patient populations
 
 Existing software for flagging comorbidities typically implement one or two comorbidity
 algorithms, most often variants of Charlson and Elixhauser, and support either
-ICD-9 or ICD-10, but not both, at least no simultaneously
+ICD-9 or ICD-10 (but not simultaneously), 
+and requires manual reconciliation of mixed-version datasets
 [@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity].
-This leaves users to reconcile mixed ICD-version datasets manually. Input
-requirements vary across utilities, making it difficult to apply multiple
-algorithms consistently.
 
 Despite the importance of longitudinal data in modern EHR research, comorbidity
 software typically operates at the encounter level. While the AHRQ [@ahrq2025]
@@ -229,12 +228,12 @@ suggested packages[^b].
 
 [^b]: https://github.com/dewittpe/medicalcoder/tree/main/testing
 
-Within the test suite there are tests for ensuring consistency between
-`method = "pccc_v2.0"` and the R package _pccc_ [@r-pccc;@feinstein2018pccc],
-and between `method = elixhauser_ahrq20XX` and the published SAS code from AHRQ[^d] [@ahrq2025].
-As part of the website[^e] build, consistency between
-`method = charlson_quan2005` and the SQL code provided by
-MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is verified.
+The test suite includes validation between `method = "pccc_v2.0"` and the R
+package _pccc_ [@r-pccc;@feinstein2018pccc], and between `method =
+elixhauser_ahrq20XX` and the published SAS code from AHRQ[^d] [@ahrq2025]. As
+part of the website[^e] build, consistency between `method = charlson_quan2005`
+and the SQL code provided by MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is
+verified.
 
 [^d]: The test directory within the source medicalcoder_<version>.tar.gz
   contains these tests are are checked prior to CRAN submissions.  Detail on
@@ -256,7 +255,7 @@ outcomes research.
 
 We compare the results of the comorbidity flagging between _medicalcoder_ and
 three alternatives, the MIMIC-IV Code released by the MIT Laboratory for
-Computational Physilogy (MIT\_LCP) on
+Computational Physiology (MIT\_LCP) on
 GitHub[^f], and the R packages _comorbidity_ [@r-comorbidity] and _pccc_
 [@r-pccc].
 
@@ -271,7 +270,7 @@ total of
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique
 hospital encounters.
 `r mimicivDT[, length(unique(icd_version)), by = .(subject_id)][V1 > 1, qwraps2::frmt(.N)]`
-subjects records contain both ICD-9 and ICD-10 codes, and
+subjects' records contain both ICD-9 and ICD-10 codes, and
 `r mimicivDT[, length(unique(icd_version)), by = .(subject_id, hadm_id)][V1 > 1, qwraps2::frmt(.N)]`
 encounters contain both ICD versions.
 
@@ -344,14 +343,14 @@ returned.
 For longitudinal flagging (`flag.method = "cumulative"`), `id.vars` must include
 at least two variables. The leading variables define the patient (or unit) and
 the final variable defines within-patient ordering. Specifically, the data are
-sorted by `id.vars`, and relevent ICD codes reported on encounter i are carried
+sorted by `id.vars`, and relevant ICD codes reported on encounter i are carried
 forward to encounters i+1, i+2, ... within the same patient history.
 
 The ordering variable may be a date/time (e.g., admission time) or a numeric
 sequence (e.g., encounter number). In large datasets, using an integer sequence
 often reduces overhead relative to sorting and joining on POSIXct timestamps.
 
-`medicalcoder::comorbidities()` returns a data.frame with addition metadata and
+`medicalcoder::comorbidities()` returns a data.frame with additional metadata and
 class consistent with the input.  The data.frame has column(s) for the `id.vars`
 and an indicator column each of the relevant comorbidities.  All returned
 data.frames include columns `num_cmrb` for the number of comorbidities flagged
@@ -407,7 +406,7 @@ hardcoding the table number as a result
 **Table 2:** Flagging of comorbidities under PCCC v3 for MIMIC-IV subject
 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to
 a ICD code that is not technology-dependent.  Tech denotes flagging of a
-comorbidity base on the presence of at least one technology-dependent ICD
+comorbidity based on the presence of at least one technology-dependent ICD
 code and the presence of at least one non-technology-dependent code for
 another comorbidity. DxPrTech denotes flagging due to both
 technology-dependent and non-technology-dependent ICD codes.  Under the Any
@@ -502,23 +501,26 @@ DT1 |>
     any_tech_dep_current = "Current", any_tech_dep_cumulative = "Cumulative",
     num_cmrb_current = "Current", num_cmrb_cumulative = "Cumulative"
   ) |>
-  gt::tab_footnote(footnote = "* A technology-dependent code was reported on this encounter.  Since no non-technology-dependent was reported no comorbidities are flagged.") |>
-  gt::tab_footnote(footnote = "† A technology-dependent code has been carried forward in the record.  Since no non-technology-dependent was reported on this, or a prior, enconter, no comorbidities are flagged.")
+  gt::tab_footnote(footnote = "* A technology-dependent code was reported on this encounter.  Since no non-technology-dependent code was reported no comorbidities are flagged.") |>
+  gt::tab_footnote(footnote = "† A technology-dependent code has been carried forward in the record.  Since no non-technology-dependent code was reported on this, or a prior, encounter, no comorbidities are flagged.")
 ```
 
 In the supplement is a detailed exploration of the flags produced by
-`medicalcoder::comorbidities()` versus the code from MIMIV-IV, and the R
+`medicalcoder::comorbidities()` versus the code from MIMIC-IV, and the R
 packages _comorbidity_ [@r-comorbidity] and _pccc_ [@r-pccc].  The flagging of
 Charlson comorbidities within the MIMIC-IV v3.1 dataset between _medicalcoder_
-and MIMIV-IV Code are the same. Between _medicalcoder_ and _comorbidity_ we
+and MIMIC-IV Code are the same. Between _medicalcoder_ and _comorbidity_ we
 found the same for Elixhauser comorbidities.  For Charlson comorbidities we
 found that the _comorbidity_ package failed to flag malignancies related to
 ICD-10-CM codes C4A.x.  PCCC v2 flagging between _medicalcoder_ and _pccc_
 showed several technology-dependent and transplant errors in the mappings within
 _pccc_.
 
-In addition to _medicalcoder_ showing greater sensitivity, _medicalcoder_
-demonstrated substantial performance advantages in large-scale testing (Figure 1).
+In addition to _medicalcoder_ showing consistent, or better, flagging of
+comorbidities compared to other utilities, _medicalcoder_ does so with less
+computational expense, Figure 1.  The package GitHub has details on benchmarking
+by input data class and size.
+
 
 ```{r}
 #| label: figure1
@@ -579,7 +581,7 @@ methodological gap in existing comorbidity software: the lack of support for
 longitudinal comorbidity assessment. Most available implementations operate
 strictly at the encounter level, implicitly assuming that comorbid conditions
 are either repeatedly coded or clinically irrelevant once absent from the
-current record. As demonstrated in Figures 1 and 2, this assumption can lead to
+current record. As demonstrated in Table 2, this assumption can lead to
 systematic under-ascertainment of comorbidities, particularly for conditions
 governed by POA rules or technology-dependent classification criteria. By
 explicitly tracking diagnostic history across encounters, _medicalcoder_ enables
@@ -596,12 +598,12 @@ Extensive testing against published SAS, SQL, and R reference implementations
 demonstrates that _medicalcoder_ produces results consistent with established
 algorithms while offering additional flexibility.
 
-To our knowledge, _medicalcoder_ is the only available R package that jointly
-supports multiple comorbidity algorithms, mixed ICD versions,
-present-on-admission logic, and cumulative longitudinal flagging within a
-single, reproducible framework. These capabilities enable researchers to
-accurately characterize patient complexity and to systematically evaluate how
-different comorbidity definitions influence analytic results.
+To our knowledge, no currently available R package jointly supports multiple
+comorbidity algorithms, mixed ICD versions, present-on-admission logic, and
+cumulative longitudinal flagging within a single, reproducible framework.
+_medicalcoder_ has these capabilities and enable researchers to accurately
+characterize patient complexity and to systematically evaluate how different
+comorbidity definitions influence analytic results.
 
 ## Conclusions
 
@@ -649,11 +651,14 @@ dataset (
 `r qwraps2::frmt(nrow(mimicivDT))` rows,
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects,
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique
-encounters) by utility and flagging method.  The MIMIIC-IV code time is based on
+encounters) by utility (panels) and flagging method.  The MIMIC-IV code time is based on
 running RSQLite code for a in-memory database.  R packages _comorbidity_ and
 _pccc_ require multiple calls and aggregations to handle the mixed use of ICD-9
-and ICD-10 within the MIMIIC-IV dataset.  Applying the each of of the
+and ICD-10 within the MIMIC-IV dataset.  Applying the each of of the
 comorbidity algorithms and flagging methods within _medicalcoder_ requires only
 modifying the `method` and `flag.method` argument to the
-`medicalcoder::comorbidities()` call.
+`medicalcoder::comorbidities()` call.  Some panels are sparse, illustrating the
+limited comorbidities method provided by the utility.  The times were recorded
+when building the supplement in `r si$platform$version` on `r si$platform$os`
+with `r si$platform$RAM` RAM.
 

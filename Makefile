@@ -3,7 +3,7 @@ RSCRIPTVANILLA := Rscript --vanilla --quiet
 QUARTO := quarto
 
 FIGURES :=
-RDATA   := mimicivDT.rds objs.rds
+RDATA   := mimicivDT.rds objs.rds si.rds
 SUPPLEMENTS := mimiciv-data-analysis.pdf
 MANUSCRIPT := medicalcoder-manuscript.docx
 
