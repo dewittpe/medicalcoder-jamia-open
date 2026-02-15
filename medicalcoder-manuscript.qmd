@@ -218,7 +218,7 @@ internal database will be extended as additional code sets are published.
 
 Charlson variants include Deyo (as denoted in @quan2005), Quan (2005; 2011), and
 CDMF (2019). Elixhauser variants include the original Elixhauser (1988), AHRQ
-Web (ICD-9 based as denotd in @quan2005), Quan (2005), and AHRQ ICD-10
+Web (ICD-9 based as denoted in @quan2005), Quan (2005), and AHRQ ICD-10
 fiscal-year implementations (2022–2026). PCCC variants include versions 2.0,
 2.1, 3.0, and 3.1.
 
@@ -294,7 +294,7 @@ medicalcoder::comorbidities(
   icd.codes = ,   # character; name of column in data containing ICD codes
   method    = ,   # <family>_<variant>, e.g., "charlson_quan2005"
 
-  # Optional inputs controlling grouping and code attributes:
+ # Optional inputs controlling grouping and code attributes:
   id.vars   = NULL,  # character; encounter identifiers (see text below)
 
   icdv.var  = NULL,  # character; column name for ICD version (9 or 10)
@@ -312,7 +312,7 @@ medicalcoder::comorbidities(
   primarydx.var = NULL, # character; column name indicating primary diagnosis
   primarydx     = NULL, # integer; constant primary dx indicator
 
-  # Defaults:
+ # Defaults:
   flag.method   = "current", # "current" (encounter-level) or
                              # "cumulative" (longitudinal)
   full.codes    = TRUE, # reference data[[icd.codes]] against
