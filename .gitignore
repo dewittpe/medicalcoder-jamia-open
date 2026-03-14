@@ -1,0 +1,3 @@
+*.rds
+mimiciv-data-analysis_cache/*
+mimiciv-data-analysis_files/*
