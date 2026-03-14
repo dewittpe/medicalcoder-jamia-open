@@ -16,7 +16,6 @@ csl: jamia.csl
 ```{r}
 #| label: setup
 #| include: false
-#reference-doc: template.docx
 stopifnot(packageVersion("medicalcoder") >= "0.7.0")
 options(qwraps2_markup = "markdown")
 loadNamespace("data.table")
@@ -277,51 +276,13 @@ encounters contain both ICD versions.
 
 A single function, `medicalcoder::comorbidities()`, is the interface for
 applying any of `r length(medicalcoder:::comorbidities_methods())` comorbidity
-algorithms implemented by _medicalcoder_. The input data are expected
+algorithms implemented by _medicalcoder_, see Figure 1. The input data are expected
 to be in long format, one ICD code per row, with optional columns for
 identification variables (e.g., patient and encounter ids), ICD version (integer
 value 9 or 10), ICD type (1 for diagnostic code, 0 for procedure code), POA
 indicator, and primary diagnosis indicator. The ICD codes can be full, compact,
 or a combination thereof. A single patient/encounter record may contain ICD-9,
 ICD-10, or both.
-
-```{r}
-#| label: examle-call
-#| eval: false
-medicalcoder::comorbidities(
- # Required inputs:
-  data      = ,   # object inheriting data.frame; one ICD code per row
-  icd.codes = ,   # character; name of column in data containing ICD codes
-  method    = ,   # <family>_<variant>, e.g., "charlson_quan2005"
-
- # Optional inputs controlling grouping and code attributes:
-  id.vars   = NULL,  # character; encounter identifiers (see text below)
-
-  icdv.var  = NULL,  # character; column name for ICD version (9 or 10)
-  icdv      = NULL,  # integer; constant ICD version for all rows
-
-  dx.var    = NULL,  # character; column name indicating
-                     #   diagnosis (1) or procedure (0)
-  dx        = NULL,  # integer; constant dx indicator for all rows
-
-  poa.var   = NULL,  # character; column name for present-on-admission indicator
-  poa       = NULL,  # integer; constant POA indicator for all rows
-
-  age.var   = NULL,  # character; column name for age in years (Charlson only)
-
-  primarydx.var = NULL, # character; column name indicating primary diagnosis
-  primarydx     = NULL, # integer; constant primary dx indicator
-
- # Defaults:
-  flag.method   = "current", # "current" (encounter-level) or
-                             # "cumulative" (longitudinal)
-  full.codes    = TRUE, # reference data[[icd.codes]] against
-                        #   full ICD codes, e.g., C4A.111
-  compact.codes = TRUE, # reference data[[icd.codes]] against
-                        #   compact ICD codes, e.g., C4A111
-  subconditions = FALSE # PCCC only: return subcondition flags when available
-)
-```
 
 Several arguments are provided in paired forms (e.g., `dx` and `dx.var`, `icdv`
 and `icdv.var`). These pairs represent the same conceptual information at two
@@ -519,45 +480,8 @@ _pccc_.
 
 In addition to _medicalcoder_ showing consistent, or better, flagging of
 comorbidities compared to other utilities, _medicalcoder_ does so with less
-computational expense, Figure 1.  The package GitHub has details on benchmarking
+computational expense, Figure 2.  The package GitHub has details on benchmarking
 by input data class and size.
-
-
-```{r}
-#| label: figure1
-#| include: false
-ttc <-
-  lapply(objs, attr, "tictoc") |>
-  lapply(as.numeric) |>
-  data.table::as.data.table() |>
-  data.table::melt(measure.vars = names(objs), variable.factor = FALSE)
-ttc[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(variable, "_")]
-ttc[, variable := NULL]
-g <-
-  ggplot2::ggplot(ttc) +
-  ggplot2::aes(x = Algorithm, y = value, fill = `Flag Method`) +
-  ggplot2::geom_col(
-    position = ggplot2::position_dodge2(width = 0.8, preserve = "single"),
-    width = 0.7,
-    color = "white",
-    linewidth = 0.3
-    ) +
-  ggplot2::facet_wrap(~ Tool, nrow = 1, strip.position = "top") +
-  ggplot2::scale_fill_manual(
-    name = "Flag Method",
-    values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
-  ) +
-  ggplot2::scale_y_continuous(breaks = seq(0, max(ttc$value), by = 15)) +
-  ggplot2::labs(x = "Comorbidity Algorithm", y = "Time (seconds)") +
-  ggplot2::theme_bw(base_size = 12) +
-  ggplot2::theme(
-    panel.grid.minor = ggplot2::element_blank(),
-    legend.position = "bottom",
-    axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
-  )
-ggplot2::ggsave(plot = g, filename = "figure1.png", width = 6, height = 4)
-ggplot2::ggsave(plot = g, filename = "figure1.svg", width = 6, height = 4)
-```
 
 # Discussion
 
@@ -616,8 +540,6 @@ patient/encounters, or longitudinally within a patient record.
 
 {{< pagebreak >}}
 
-[**Funding Statement:**]{.underline}
-
 [**Competing Interests Statement:**]{.underline} None.
 
 [**Data Availability Statement:**]{.underline}
@@ -650,7 +572,29 @@ in designing the _medicalcoder_ logo.
 
 # Figures {.unnumbered}
 
-**Figure 1:** The time required to flag comorbidities in the MIMIC-IV v3.1
+**Figure 1:** Interface for the `medicalcoder::comorbidities()` function. The
+function requires a data object containing one ICD code per row, the column
+containing ICD codes, and the comorbidity algorithm specification (e.g.,
+Charlson or Elixhauser variants). Optional arguments allow users to specify
+encounter identifiers, ICD version, diagnosis type, present-on-admission
+indicators, patient age, and primary diagnosis flags. Defaults control how
+comorbidities are identified, including encounter-level (`flag.method =
+"current"`) or longitudinal (`flag.method = "cumulative"`) evaluation and how ICD
+codes are matched.
+
+**Figure 1 ALT TEXT:**
+Diagram showing the argument structure of the R function
+`medicalcoder::comorbidities()`. The figure lists three required inputs: a data
+frame containing one ICD code per row (data), the column name containing ICD
+codes (`icd.codes`), and the comorbidity method specification (`method`, such as
+"charlson_quan2005"). Additional optional parameters allow users to specify
+encounter identifiers, ICD version (9 or 10), diagnosis versus procedure
+indicators, present-on- admission status, patient age (for Charlson algorithms),
+and primary diagnosis flags. Default arguments include `flag.method = "current"`
+for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
+`subconditions = FALSE`.
+
+**Figure 2:** The time required to flag comorbidities in the MIMIC-IV v3.1
 dataset (
 `r qwraps2::frmt(nrow(mimicivDT))` rows,
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects,
@@ -658,7 +602,7 @@ dataset (
 encounters) by utility (panels) and flagging method.  The MIMIC-IV code time is based on
 running RSQLite code for a in-memory database.  R packages _comorbidity_ and
 _pccc_ require multiple calls and aggregations to handle the mixed use of ICD-9
-and ICD-10 within the MIMIC-IV dataset.  Applying the each of of the
+and ICD-10 within the MIMIC-IV dataset.  Applying each of the
 comorbidity algorithms and flagging methods within _medicalcoder_ requires only
 modifying the `method` and `flag.method` argument to the
 `medicalcoder::comorbidities()` call.  Some panels are sparse, illustrating the
@@ -666,3 +610,18 @@ limited comorbidities method provided by the utility.  The times were recorded
 when building the supplement in `r si$platform$version` on `r si$platform$os`
 with `r si$platform$RAM` RAM.
 
+**Figure 2 ALT TEXT:**
+
+Four-panel grouped bar chart showing time in seconds to flag comorbidities in
+the MIMIC-IV v3.1 dataset. Panels compare four utilities: `comorbidity`,
+`medicalcoder`, MIMIC-IV code, and `pccc`. The x-axis lists comorbidity
+algorithms: Charlson, Elixhauser, PCCC version 2.0, and PCCC version 3.1. The
+y-axis is time in seconds from 0 to about 160. Blue bars indicate cumulative
+flagging and maroon bars indicate current flagging. Only `medicalcoder` has
+cumulative bars as it is the only utility natively supporting cumulative
+flagging.  `medicalcoder` is the fastest in every comparison shown, with times
+of about 3 to 14 seconds across all four algorithms and flag methods.
+`comorbidity` is slower, at about 54 seconds for current Charlson, 76 seconds
+for current Elixhauser. The MIMIC-IV code panel shows a single current Charlson
+result at about 106 seconds. The `pccc` panel shows only PCCC version 2.0, with
+about 152 seconds for current flagging.

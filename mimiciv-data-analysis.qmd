@@ -2122,7 +2122,7 @@ kableExtra::kbl(
   format = "latex",
   booktabs = TRUE,
   row.names = FALSE,
-  align = rep("c", ncol(DT)),
+  align = rep("c", ncol(DT1)),
   escape = FALSE,
   caption.short = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333.",
   caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to a ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity base on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."

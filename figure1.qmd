@@ -1,0 +1,49 @@
+---
+format:
+  pdf:
+    fontsize: 10pt
+    geometry:
+      - paperwidth  = 6.30in
+      - paperheight = 6.10in
+      - margin      = 0.25in
+    include-in-header:
+          text: |
+            \pagenumbering{gobble}
+---
+```{r}
+#| label: examle-call
+#| eval: false
+medicalcoder::comorbidities(
+  ### Required inputs:
+  data      = ,   # object inheriting data.frame; one ICD code per row
+  icd.codes = ,   # character; name of column in data containing ICD codes
+  method    = ,   # <family>_<variant>, e.g., "charlson_quan2005"
+
+  ### Optional inputs controlling grouping and code attributes:
+  id.vars   = NULL,  # character; encounter identifiers (see text below)
+
+  icdv.var  = NULL,  # character; column name for ICD version (9 or 10)
+  icdv      = NULL,  # integer; constant ICD version for all rows
+
+  dx.var    = NULL,  # character; column name indicating
+                     #   diagnosis (1) or procedure (0)
+  dx        = NULL,  # integer; constant dx indicator for all rows
+
+  poa.var   = NULL,  # character; column name for present-on-admission indicator
+  poa       = NULL,  # integer; constant POA indicator for all rows
+
+  age.var   = NULL,  # character; column name for age in years (Charlson only)
+
+  primarydx.var = NULL, # character; column name indicating primary diagnosis
+  primarydx     = NULL, # integer; constant primary dx indicator
+
+  ### Defaults:
+  flag.method   = "current", # "current" (encounter-level) or
+                             # "cumulative" (longitudinal)
+  full.codes    = TRUE, # reference data[[icd.codes]] against
+                        #   full ICD codes, e.g., C4A.111
+  compact.codes = TRUE, # reference data[[icd.codes]] against
+                        #   compact ICD codes, e.g., C4A111
+  subconditions = FALSE # PCCC only: return subcondition flags when available
+)
+```
