@@ -72,25 +72,24 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 Word count: 149 / 150
 
 **Objectives:**
-Comorbidity algorithms derived from International Classification of Diseases
-(ICD) codes are central to risk adjustment and cohort characterization, yet
-existing software is fragmented, inconsistently handles mixed ICD-9 and ICD-10
-data, and typically operates at the encounter level. We developed _medicalcoder_
-to address these limitations.
+Comorbidity algorithms derived from ICD codes are central to risk adjustment and
+cohort characterization, yet existing software is fragmented, inconsistently
+handles mixed ICD-9/10 data, and typically operates at the encounter level. We
+developed _medicalcoder_ to address these limitations.
 
 **Materials and Methods:**
-_medicalcoder_ is a self-contained R package with an internal ICD database and
-unified interface for applying multiple variants of the Charlson, Elixhauser,
-and Pediatric Complex Chronic Conditions algorithms. It supports full and
-compact ICD codes, mixed ICD versions, present-on-admission and primary
-diagnosis indicators, and both encounter-level and cumulative longitudinal
-flagging.
+_medicalcoder_ is a R package with an internal ICD database and unified
+interface for applying multiple variants of the Charlson, Elixhauser, and
+Pediatric Complex Chronic Conditions algorithms. It supports full and compact
+ICD codes, mixed ICD versions, present-on-admission and primary diagnosis
+indicators, and both encounter-level and cumulative longitudinal flagging.
 
 **Results:**
-The package requires only R ≥ 3.5.0. Outputs are consistent with published
-reference implementations. Longitudinal flagging captured additional
-comorbidities not identified through naïve aggregation of encounter-level flags,
-particularly for algorithms incorporating POA or technology-dependent logic.
+The _medicalcoder_ package requires only R ≥ 3.5.0. No additional packages,
+internet access, or external data downloads are required. Outputs are consistent
+with published implementations. Longitudinal flagging captured comorbidities not
+identified through naïve encounter-level aggregation for algorithms
+incorporating present-on-admission or technology-dependent logic.
 
 **Conclusions:**
 _medicalcoder_ provides a unified, reproducible framework for ICD-based
@@ -550,6 +549,12 @@ https://github.com/dewittpe/medicalcoder/.
 
 The MIMIC-IV v3.1 data is available from PhysioNet at
 https://physionet.org/content/mimiciv/3.1/.
+
+This manuscript was written using Quarto version
+`r system("quarto --version", intern = TRUE)`
+(https://quarto.org/) and `r R.version.string`. All R code, materials,
+and dependencies can be found at
+https://github.com/dewittpe/medicalcoder-jamiaopen/.
 
 [**Contributorship Statement:**]{.underline} PED designed and developed the
 _medicalcoder_ R package and drafted the manuscript. SR provided critical code
