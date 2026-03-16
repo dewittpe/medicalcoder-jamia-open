@@ -1755,6 +1755,8 @@ objs <-
 saveRDS(object = objs, file = "objs.rds")
 ```
 
+### Reduced Severity
+
 Let's look at the impact of longitudinal flagging vs encounter level flagging of
 Charlson comorbidities.
 
@@ -1952,6 +1954,8 @@ diabetes as Charlson.
 flagmethod_plot(flagmethod_delta[algo == "elixhauser"])
 ```
 
+### PCCC
+
 @fig-flagmethod-delta-pcccv2.0 and @fig-flagmethod-delta-pcccv3.1 illustrate
 the impact of the flagging method when identifying PCCC comorbidities under
 PCCC v2 and PCCC v3 respectively.  @fig-flagmethod-delta-pcccv3.1 is of
@@ -2040,7 +2044,7 @@ Filter(f = function(x) sum(x) > 0, s10728333)
 # metabolic, respriatory, any_tech, num_cmrb, misc,
 ```
 
-Let's look at the records for `subject_id = 10728333`.  \ref{tbl:s10728333} shows the
+Let's look at the records for `subject_id = 10728333`.  @tbl-s10728333 shows the
 flagging of metabolic, miscellaneous, and respiratory conditions for PCCC v3
 using `flag.method = 'current'` or `flag.method = 'cumulative'`.  For this
 patient, on encounter 1, a technology-dependent ICD code related to a
@@ -2063,7 +2067,7 @@ comorbidity until encounter 6, and would incorrectly classify as
 non-technology-dependent until the final encounter.
 
 ```{r}
-#| label: s10728333
+#| label: tbl-s10728333
 #| echo: false
 #| results: "asis"
 # NOTE: not using the quarto yaml for the table crossref so I can use short
@@ -2139,7 +2143,6 @@ kableExtra::add_footnote(
   notation = "symbol",
   threeparttable = TRUE
 )
-
 ```
 
 ```{r}
@@ -2180,6 +2183,69 @@ Filter(f = function(x) sum(x) > 0, s10728333v2)
 s10728333v2[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
 ```
 
+### AHRQ Example
+
+AHRQ Elixhauser for years 2022 and beyond use ICD-10 diagnostic codes and
+require some ICD-codes to be present-on-admission for the comorbidity to be
+flag.  The MIMIC data does not have a present-on-admission flag.  For this
+example let's assume that all codes are not POA.
+
+```{r}
+common_args <-
+  list(
+    data = mimicivDT,
+    id.vars = c("subject_id", "enc_seq"),
+    icd.codes = "icd_code",
+    icdv.var = "icd_version",
+    dx.var = "dx",
+    poa = 0L,
+    primarydx = 0L,
+    method = "elixhauser_ahrq_icd10"
+  )
+
+flgcurrent <-
+  do.call(
+    medicalcoder::comorbidities,
+    c(common_args, list(flag.method = "current"))
+  )
+
+flgcumulative <-
+  do.call(
+    medicalcoder::comorbidities,
+    c(common_args, list(flag.method = "cumulative"))
+  )
+```
+
+Let's look at subject_id 19997538.  This subject has ICD code K76.0 reported on
+encounter 1.
+
+```{r}
+mimicivDT[subject_id == 19997538 & icd_code == "K760"]
+```
+K76.0 maps to mild liver disease and is required to be POA for the
+condition to be flagged.
+```{r}
+subset(medicalcoder::get_icd_codes(with.description = TRUE), full_code == "K76.0")
+subset(medicalcoder::get_elixhauser_codes(), full_code == "K76.0")
+subset(medicalcoder::get_elixhauser_poa(), condition == "LIVER_MLD")
+```
+
+When `flag.method = "current"` we see what we expect, mild liver disease is not
+flagged on any encounter.  When `flag.method = "cumulative"` we see that on
+encounter 1 the condition is not flagged, as expected since it is not POA, but
+it is flagged on encounters 2 and 3 as the patient history is accounted for.
+```{r}
+merge(
+  x = flgcurrent,
+  y = flgcumulative,
+  by = c("subject_id", "enc_seq"),
+  suffixes = c("_current", "_cumulative")
+)[
+  subject_id == 19997538,
+  .SD,
+  .SDcols = patterns("^(subject_id|enc_seq|LIVER_MLD_c)")
+]
+```
 
 ## Time Required To Compute
 
@@ -2269,7 +2335,8 @@ str(summary(medicalcoder_charlson_cumulative), max.level = 0)
 ```
 
 The data.frames are provided so that end users can easily build their own
-summary tables using tools such as _knitr_ [@r-knitr] and _kableExtra_
+summary tables using tools such as _knitr_
+[@r-knitr,@r-knitr-collection,@r-knitr-book] and _kableExtra_
 [@r-kableExtra]
 
 ```{r}
@@ -2337,12 +2404,32 @@ mem_total_gb <- format_gb(mem_total_bytes())
 ```
 
 ```{r}
+#| label: get-cpu-brand
+#| include: false
+cpu_brand <- if (.Platform$OS.type == "unix") {
+  if (Sys.info()["sysname"] == "Darwin") {
+    # macOS
+    system("sysctl -n machdep.cpu.brand_string", intern = TRUE)
+  } else {
+    # Linux
+    system("grep -m 1 'model name' /proc/cpuinfo | awk -F: '{print $2}'", intern = TRUE)
+  }
+} else {
+  # Windows
+  system("wmic cpu get name", intern = TRUE)[2]
+}
+
+CPU <- trimws(cpu_brand)
+```
+
+```{r}
 #| label: tbl-session-info-platform
 #| tbl-cap: "Details on the machine to generate this document."
 #| echo: false
 #| results: "asis"
 si <- sessioninfo::session_info()
 si$platform$RAM <- mem_total_gb
+si$platform$CPU <- CPU
 saveRDS(si, "si.rds")
 
 si$platform <-
@@ -2353,8 +2440,8 @@ si$platform <-
 
 si$platform <-
   si$platform[
-    V1 %in% c("version", "os", "system", "RAM", "date", "pandoc", "quarto")
-  ][c(1:3, 7, 4:6)]
+    V1 %in% c("version", "os", "system", "CPU", "RAM", "date", "pandoc", "quarto")
+  ][c(1:3, 8, 7, 4:6)]
 
 kableExtra::kbl(
   x = si$platform,
