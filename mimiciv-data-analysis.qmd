@@ -69,7 +69,7 @@ comorbidity research. MIMIC-IV is widely used for method development,
 validation, and reproducible research in clinical informatics and outcomes
 research.
 
-The MIMIC-IV v3.1 data set can be obtained so long at you meet the requirements
+The MIMIC-IV v3.1 data set can be obtained so long as you meet the requirements
 set by PhysioNet[^1].
 
 [^1]: https://physionet.org/content/mimiciv/3.1/
@@ -161,9 +161,9 @@ stopifnot(
 We only need four of the MIMIC-IV hospital datasets:
 `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`.
 
-We will do some light formatting to before
-using `medicalcoder::comorbidities()` to flag comorbidities.  Start by importing
-the `admissions`, `patients`, `diagnoses_icd`, and `procedures_icd`, datasets.
+We will do some light formatting before using `medicalcoder::comorbidities()` to
+flag comorbidities.  Start by importing the `admissions`, `patients`,
+`diagnoses_icd`, and `procedures_icd`, datasets.
 
 @tbl-mimicivdata-checksums gives the sha256 checksums for these files
 Each file checksum has been verified.
@@ -176,7 +176,7 @@ Each file checksum has been verified.
 data.table::fread(
   file = file.path(Sys.getenv("MIMICIVDATA"), "SHA256SUMS.txt"),
   header = FALSE
-)[grepl("^hosp.(admissions|patients|.+_icd)\\.csv\\.gz", V2)] |>
+)[grepl("^hosp.(admissions|patients|.+_icd)\\.csv\\.gz$", V2)] |>
 kableExtra::kbl(
   x = _,
   col.names = c("sha256sum", "file"),
@@ -218,12 +218,12 @@ verify_sha256sums <- function(dir, sums_file = "SHA256SUMS.txt") {
   # macOS often has `shasum -a 256`, Linux typically has `sha256sum`
   if (nzchar(Sys.which("sha256sum"))) {
     out <- system2("sha256sum", c("-c", sums_file), stdout = TRUE, stderr = TRUE)
-    return(any(grepl(": OK$", out)))
+    return(all(grepl(": OK$", out)))
   }
 
   if (nzchar(Sys.which("shasum"))) {
     out <- system2("shasum", c("-a", "256", "-c", sums_file), stdout = TRUE, stderr = TRUE)
-    return(any(grepl(": OK$", out)))
+    return(all(grepl(": OK$", out)))
   }
 
   stop("No SHA-256 tool found (need sha256sum, shasum, or certutil).")
@@ -2154,7 +2154,7 @@ merge(
 
 ## Time Required To Compute
 
-The amount of time required to apply the several different comorbidity
+The times required (median and IQR) to apply the different comorbidity
 algorithms to the MIMIC-IV data are shown in @tbl-time-to-compute.  To process
 the `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects and a
@@ -2165,71 +2165,88 @@ faster than all the alternatives.
 ```{r}
 #| label: benchmarking-expressions
 #| include: false
-bench <- new.env()
+get_expr <- function(lbl) { parse(text = knitr::knit_code$get(lbl)) }
 expressions <-
   list(
-    medicalcoder_charlson_current      = parse(text = knitr::knit_code$get("medicalcoder-charlson-current")),
-    medicalcoder_charlson_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-charlson-cumulative")),
-    medicalcoder_elixhauser_current    = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-current")),
-    medicalcoder_elixhauser_cumulative = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-cumulative")),
-    medicalcoder_elixhauser_current    = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-current")),
-    medicalcoder_pcccv2.0_current      = parse(text = knitr::knit_code$get("medicalcoder-pcccv2.0-current")),
-    medicalcoder_pcccv2.0_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-pcccv2.0-cumulative")),
-    medicalcoder_pcccv3.1_current      = parse(text = knitr::knit_code$get("medicalcoder-pcccv3.1-current")),
-    medicalcoder_pcccv3.1_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-pcccv3.1-cumulative")),
-    mimiciv_charlson_current           = parse(text = knitr::knit_code$get("mimic-iv-charlson-results")),
-    comorbidity_charlson_current       = parse(text = knitr::knit_code$get("comorbidity-charlson-current")),
-    comorbidity_elixhauser_current     = parse(text = knitr::knit_code$get("comorbidity-elixhauser-current")),
-    pccc_pcccv2.0_current              = parse(text = knitr::knit_code$get("pccc-pcccv2.0-current"))
+    medicalcoder_charlson_current      = get_expr("medicalcoder-charlson-current"),
+    medicalcoder_charlson_cumulative   = get_expr("medicalcoder-charlson-cumulative"),
+    medicalcoder_elixhauser_current    = get_expr("medicalcoder-elixhauser-current"),
+    medicalcoder_elixhauser_cumulative = get_expr("medicalcoder-elixhauser-cumulative"),
+    medicalcoder_pcccv2.0_current      = get_expr("medicalcoder-pcccv2.0-current"),
+    medicalcoder_pcccv2.0_cumulative   = get_expr("medicalcoder-pcccv2.0-cumulative"),
+    medicalcoder_pcccv3.1_current      = get_expr("medicalcoder-pcccv3.1-current"),
+    medicalcoder_pcccv3.1_cumulative   = get_expr("medicalcoder-pcccv3.1-cumulative"),
+    mimiciv_charlson_current           = get_expr("mimic-iv-charlson-results"),
+    comorbidity_charlson_current       = get_expr("comorbidity-charlson-current"),
+    comorbidity_elixhauser_current     = get_expr("comorbidity-elixhauser-current"),
+    pccc_pcccv2.0_current              = get_expr("pccc-pcccv2.0-current")
   )
-expressions
 ```
 
 ```{r}
 #| label: benchmarking
 #| include: false
+
+run_expr <- function(expr) {
+  eval(expr, envir = new.env(parent = globalenv()))
+}
+
 benchmarks <-
   microbenchmark::microbenchmark(
-    medicalcoder__charlson__current      = eval(expressions$medicalcoder_charlson_current,      envir = bench),
-    medicalcoder__charlson__cumulative   = eval(expressions$medicalcoder_charlson_cumulative,   envir = bench),
-    medicalcoder__elixhauser__current    = eval(expressions$medicalcoder_elixhauser_current,    envir = bench),
-    medicalcoder__elixhauser__cumulative = eval(expressions$medicalcoder_elixhauser_cumulative, envir = bench),
-    medicalcoder__pcccv2.0__current      = eval(expressions$medicalcoder_pcccv2.0_current,      envir = bench),
-    medicalcoder__pcccv2.0__cumulative   = eval(expressions$medicalcoder_pcccv2.0_cumulative,   envir = bench),
-    medicalcoder__pcccv3.1__current      = eval(expressions$medicalcoder_pcccv3.1_current,      envir = bench),
-    medicalcoder__pcccv3.1__cumulative   = eval(expressions$medicalcoder_pcccv3.1_cumulative,   envir = bench),
-    mimiciv__charlson__current           = eval(expressions$mimiciv_charlson,                   envir = bench),
-    comorbidity__charlson__current       = eval(expressions$comorbidity_charlson_current,       envir = bench),
-    comorbidity__elixhauser__current     = eval(expressions$comorbidity_elixhauser_current,     envir = bench),
-    pccc__pcccv2.0__current              = eval(expressions$pccc_pcccv2.0_current,              envir = bench),
+    medicalcoder__charlson__current      = run_expr(expressions$medicalcoder_charlson_current),
+    medicalcoder__charlson__cumulative   = run_expr(expressions$medicalcoder_charlson_cumulative),
+    medicalcoder__elixhauser__current    = run_expr(expressions$medicalcoder_elixhauser_current),
+    medicalcoder__elixhauser__cumulative = run_expr(expressions$medicalcoder_elixhauser_cumulative),
+    medicalcoder__pcccv2.0__current      = run_expr(expressions$medicalcoder_pcccv2.0_current),
+    medicalcoder__pcccv2.0__cumulative   = run_expr(expressions$medicalcoder_pcccv2.0_cumulative),
+    medicalcoder__pcccv3.1__current      = run_expr(expressions$medicalcoder_pcccv3.1_current),
+    medicalcoder__pcccv3.1__cumulative   = run_expr(expressions$medicalcoder_pcccv3.1_cumulative),
+    mimiciv__charlson__current           = run_expr(expressions$mimiciv_charlson_current),
+    comorbidity__charlson__current       = run_expr(expressions$comorbidity_charlson_current),
+    comorbidity__elixhauser__current     = run_expr(expressions$comorbidity_elixhauser_current),
+    pccc__pcccv2.0__current              = run_expr(expressions$pccc_pcccv2.0_current),
     times = 10L
   )
+
 saveRDS(benchmarks, file = "benchmarks.rds")
 ```
 
 ```{r}
-#| label: benchmark-summary
-#| include: false
+#| label: fig-benchmark-summary
+#| echo: false
+#| fig-cap: |
+#|   Time (median IQR) in seconds to apply several comorbidity
+#|   algorithms to the MIMIC-IV dataset.
+#| fig-width: 7
+#| fig-height: 7
 benchmarksDT <- data.table::as.data.table(data.table::copy(benchmarks))
 benchmarksDT[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(expr, "__")]
 
-benchmarksDT[, .(min(time/1e9), max(time/1e9)), by = .(expr)]
-
-ggplot2::ggplot(data = benchmarksDT) +
-  ggplot2::aes(x = Algorithm, y = time/1e9, fill = `Flag Method`) +
-  ggplot2::geom_boxplot() +
-  ggplot2::facet_wrap( ~ Tool, nrow = 1, strip.position = "top") +
-  ggplot2::scale_fill_manual(
-    name = "Flag Method",
-    values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
-  ) +
-  ggplot2::labs(x = "Comorbidity Algorithm", y = "Time (seconds)") +
-  ggplot2::theme_bw(base_size = 12) +
-  ggplot2::theme(
-    panel.grid.minor = ggplot2::element_blank(),
-    legend.position = "bottom",
-    axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
-  )
+g <-
+  ggplot2::ggplot(
+      data =
+        benchmarksDT[
+          ,
+          .(y = median(time/1e9), lwr = quantile(time/1e9, prob = 0.25), upr = quantile(time/1e9, prob = 0.75)),
+          by = .(Tool, Algorithm, `Flag Method`)
+        ]
+    ) +
+    ggplot2::aes(x = Algorithm, y = y, ymin = lwr, ymax = upr, fill = `Flag Method`) +
+    ggplot2::geom_col(position = ggplot2::position_dodge2()) +
+    ggplot2::geom_errorbar(position = ggplot2::position_dodge2()) +
+    ggplot2::facet_wrap( ~ Tool, nrow = 1, strip.position = "top") +
+    ggplot2::scale_fill_manual(
+      name = "Flag Method",
+      values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
+    ) +
+    #ggplot2::scale_y_log10() +
+    ggplot2::labs(x = "Comorbidity Algorithm", y = "Time (seconds)") +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::theme(
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.position = "bottom",
+      axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
+    )
 ```
 
 ```{r}

@@ -20,7 +20,7 @@ mimiciv-data-analysis.pdf $(RDATA) &: mimiciv-data-analysis.qmd
 figure1.pdf: figure1.qmd
 	$(QUARTO) render $<
 
-figure2.svg: figure2.R benchmarks.rds
+figure2.svg: figure2.R objs.rds
 	$(RSCRIPTVANILLA) $<
 
 figure3.svg: figure3.R benchmarks.rds
