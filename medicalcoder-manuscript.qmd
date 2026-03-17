@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1813 / 2000 (excluding tables)
+[**Word count:**]{.underline} 1812 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -334,7 +334,7 @@ gt::gt(
 
 Flagging of comorbidities at the encounter-level only assumes all relevant ICD
 codes are reported on all encounters and correctly marked as POA.  This is
-rarely the case. Accumulation of of encounter-level flags is insufficient to
+rarely the case. Accumulation of encounter-level flags is insufficient to
 capture comorbidities and/or the severity of disease.
 
 ```{r}
