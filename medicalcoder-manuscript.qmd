@@ -24,6 +24,7 @@ mimicivDT <- readRDS("mimicivDT.rds")
 objs <- readRDS("objs.rds")
 benchmarks <- readRDS("benchmarks.rds")
 si <- readRDS("si.rds")
+figure2data <- readRDS("figure2data.rds")
 ```
 
 **Authors**: Peter E. DeWitt^1^, PhD; Seth Russell^1^, MS; James A. Feinstein, MD, MPH^2,3,4^; Margaret N. Rebull^1^, MA; Tellen D. Bennett^1,5^, MD, MS
@@ -348,23 +349,41 @@ Flagging of comorbidities at the encounter-level only assumes all relevant ICD
 codes are reported on all encounters and correctly marked as POA.  This is
 rarely the case. Accumulation of of encounter-level flags is insufficient to
 capture comorbidities and/or the severity of disease.
-For example,
-some PCCC v3 conditions depend on whether technology-dependent codes co-occur (or
-eventually co-occur) with non–technology-dependent codes.  Also, Elixhauser from
-AHRQ post 2022 account for POA status of ICD codes.
-In these cases, naïve
-post hoc accumulation of encounter-level flags can miss conditions (Table 2); using
-`flag.method = "cumulative"` ensures the algorithm’s longitudinal logic is
-applied consistently.
 
-Figure 2 shows the large number of additional encounters in the MIMIC-IV data
-set flagged with comorbidities when using `flag.method = "cumulative"` compared
-to `flag.method = "current"`.  Severity of disease is also captured in this
-example.  The number of encounters with uncomplicated diabetes via Charlson and
-Elixhauser decreased from the encounter-level to longitudinal flagging
-approaches.  This is because _medicalcoder_ accounts for the severity of disease
-and once a subject has diabetes with complications that will take precedence
-over diabetes without complications.
+```{r}
+#| include: false
+figure2data
+fmtn <- function(x) formatC(x, format = "d", big.mark = ",")
+
+N  <- figure2data[method == "Elixhauser"][1, fmtn(subjects_with_a_cmrb_flag)]
+cs <-
+  figure2data[
+    method == "Elixhauser" & variable == "sp",
+    sprintf("%s (%s%%)", fmtn(subjects), formatC(100 * value, format = "f", digits = 1))
+]
+es <-
+  figure2data[
+    method == "Elixhauser" & variable == "ep",
+    sprintf("%s (%s%%)", fmtn(subjects), formatC(100 * value, format = "f", digits = 1))
+]
+```
+Figure 2 shows the impact on risk profiles for subjects and encounters by
+flagging method and algorithm.  For example,
+For `r N` subjects with at least two encounters and at least one Elixhauser
+comorbidity flagged on encounter 2 via `flag.method = "cumulative"`,
+`r cs[1]` subjects have at least one encounter with a different risk profile
+(different classification of comorbidities and/or count of comorbidities) under
+`flag.method = "cumulative"` compared to `flag.method = "current"`.
+`r cs[2]` subjects had at least one encouter with zero comorbidities per
+`flag.method = "current"` and at least one comorbidity with `flag.method =
+'cumulative'`.
+
+Naïve post hoc accumulation of encounter-level flags can miss conditions. PCCC
+v3 conditions depend on whether technology-dependent codes co-occur (or
+eventually co-occur) with non–technology-dependent codes (Table 2). Elixhauser
+from AHRQ post 2022 account for POA status of ICD codes (example in Supplement.)
+Using `flag.method = "cumulative"` ensures the algorithm’s longitudinal logic is
+applied consistently.
 
 <!--
 using the quarto native tbl- for crossref is causing an error in the word doc.
@@ -646,8 +665,17 @@ for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 `subconditions = FALSE`.
 
 **Figure 2:**
+Number of subjects and encounters in the MIMIC-IV data set with different risk
+profiles (more severe comorbidities and/or more comorbidities) with `flag.method
+= "cumulative"` versus `flag.method = "current"`.  The denomiator for Panel (A)
+is the number of subjects with at least two encounters and at least one
+comorbidity flagged on encounter 2 (implicitly encounter 1 is the same
+regardless of `flag.method`.)  The denomiator for Panel (B) is the number of
+non-initial encounters with at least one comorbidity flag when `flag.method =
+"cumulative".`
 
 **Figure 2 ALT TEXT:**
+
 
 **Figure 3:** The time required to flag comorbidities in the MIMIC-IV v3.1
 dataset (`r qwraps2::frmt(nrow(mimicivDT))` rows,
