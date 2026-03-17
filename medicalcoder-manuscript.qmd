@@ -280,40 +280,27 @@ or a combination thereof. A single patient/encounter record may contain ICD-9,
 ICD-10, or both.
 
 Several arguments are provided in paired forms (e.g., `dx` and `dx.var`, `icdv`
-and `icdv.var`). These pairs represent the same conceptual information at two
-levels of granularity. Arguments without the `.var` suffix specify dataset-level
-invariants (e.g., all rows are ICD-10, or all rows are diagnoses), whereas
-arguments with the `.var` suffix reference columns in the input data that encode
-row-level variation.
-
-This design avoids requiring users to create constant-valued columns when
-dataset-level properties are already known, while still supporting heterogeneous
-datasets in which code attributes vary across rows. When both forms are
-supplied, the column-based form (e.g., `dx.var`) takes precedence and a warning
-is issued to indicate the override.
+and `icdv.var`): arguments without the `.var` suffix specify dataset-level
+invariants, whereas `.var` arguments reference columns encoding row-level
+variation. This avoids creating constant-valued columns when dataset-level
+properties are already known while still supporting heterogeneous datasets. When
+both forms are supplied, the column-based form takes precedence with a warning.
 
 The `id.vars` argument controls how comorbidities are summarized into
-encounter-level flags. When flag.method = "current", id.vars is optional: if
-omitted, the entire dataset is treated as a single encounter and a single row of
-flags is returned.
-
-For longitudinal flagging (`flag.method = "cumulative"`), `id.vars` must include
-at least two variables. The leading variables define the patient and
-the final variable defines within-patient ordering. Specifically, the data are
-sorted by `id.vars`, and relevant ICD codes reported on encounter i are carried
-forward to encounters i+1, i+2, ... within the same patient history.
+encounter-level flags. When flag.method = "current", `id.vars` is optional; if
+omitted, the entire dataset is treated as a single encounter. For longitudinal
+flagging (`flag.method = "cumulative"`), `id.vars` must include at least two
+variables: the leading variables define the patient and the final variable
+defines within-patient order for carrying ICD codes forward across encounters.
 
 The ordering variable may be a date/time (e.g., admission time) or a numeric
 sequence (e.g., encounter number). In large datasets, using an integer sequence
 often reduces overhead relative to sorting and joining on POSIXct timestamps.
 
-`medicalcoder::comorbidities()` returns a data.frame with additional metadata
-and class consistent with the input.  The returned data frame contains the
-`id.vars` columns and an indicator column for each comorbidity. All returned
-data.frames include columns `num_cmrb` for the number of comorbidities flagged
-for the `id.vars` and `cmrb_flag`, an indicator column for at least one
-comorbidity.  _medicalcoder_ provides a S3 `summary()` method for the returns to
-generate tables of the counts and percentage of encounters flagged, Table 1.
+`medicalcoder::comorbidities()` returns a data.frame with class consistent with
+the input, containing the `id.vars`, one indicator column per comorbidity, and
+summary columns `num_cmrb` and `cmrb_flag`. _medicalcoder_ also provides an S3
+`summary()` method to generate count and percentage tables (Table 1).
 
 <!--
 using the quarto native tbl- for crossref is causing an error in the word doc.
@@ -504,32 +491,21 @@ DT1 |>
 ```
 
 
-The supplement includes a detailed exploration of the flags produced by
-`medicalcoder::comorbidities()` versus the code from MIMIC-IV and the R
-packages _comorbidity_ [@r-comorbidity] and _pccc_ [@r-pccc].  The flagging of
-Charlson comorbidities within the MIMIC-IV v3.1 dataset between _medicalcoder_
-and MIMIC-IV Code are the same. Between _medicalcoder_ and _comorbidity_ we
-found the same for Elixhauser comorbidities.  For Charlson comorbidities we
-found that the _comorbidity_ package failed to flag malignancies related to
-ICD-10-CM codes C4A.x.  PCCC v2 flagging between _medicalcoder_ and _pccc_
-showed several technology-dependent and transplant errors in the mappings within
-_pccc_.
+The supplement details comparisons with MIMIC-IV code and the R packages
+_comorbidity_ [@r-comorbidity] and _pccc_ [@r-pccc]. Charlson flags matched
+MIMIC-IV code, and Elixhauser flags matched _comorbidity_. For Charlson,
+_comorbidity_ missed malignancies related to ICD-10-CM codes C4A.x; for PCCC
+v2, _pccc_ showed several technology-dependent and transplant mapping errors.
 
 In addition to _medicalcoder_ showing consistent, or better, flagging of
 comorbidities compared to other utilities, _medicalcoder_ does so with less
 computational expense, Figure 3.  The package GitHub has details on benchmarking
 by input data class and size.
 
-In addition to the comorbidity interface, _medicalcoder_ provides several ICD
-utility functions designed to support data preparation and validation workflows.
-The function `medicalcoder::get_icd_codes()` exposes the internal ICD database
-and allows users to retrieve diagnostic or procedure codes by version, type, and
-code range. The function `medicalcoder::is_icd()` provides fast validation of
-candidate ICD codes, supporting both full and compact representations and mixed
-ICD-9/ICD-10 datasets. These utilities enable users to inspect and verify ICD
-content prior to comorbidity classification and to construct reproducible code
-filters directly from the same internal database used by the comorbidity
-algorithms.
+_medicalcoder_ also provides ICD utility functions for data preparation and
+validation. `medicalcoder::get_icd_codes()` exposes the internal ICD database,
+and `medicalcoder::is_icd()` validates candidate codes across full and compact
+representations and mixed ICD-9/ICD-10 datasets.
 
 # Discussion
 
@@ -570,16 +546,11 @@ function call. This contrasts with existing workflows that require dataset
 partitioning, multiple method calls, and post hoc reconciliation, each of which
 introduces opportunities for error and irreproducibility.
 
-Although the primary focus of _medicalcoder_ is comorbidity classification, the
-included ICD utility functions also address a common practical challenge in
-working with administrative and electronic health record data: verifying and
-manipulating large collections of ICD codes. By exposing the internal ICD
-database through functions such as get_icd_codes() and providing validation via
-is_icd(), _medicalcoder_ allows analysts to perform exploratory and preprocessing
+The included ICD utility functions also support exploratory and preprocessing
 tasks using the same reference data employed by the comorbidity algorithms. This
-reduces reliance on ad hoc code lists and external reference tables, improving
-transparency and reproducibility when defining cohorts or filtering diagnosis
-and procedure codes in large clinical datasets.
+reduces reliance on ad hoc code lists and external reference tables when
+defining cohorts or filtering diagnosis and procedure codes in large clinical
+datasets.
 
 Extensive testing against published SAS, SQL, and R reference implementations
 demonstrates that _medicalcoder_ produces results consistent with established
