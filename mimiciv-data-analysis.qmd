@@ -396,8 +396,6 @@ algorithms to each encounter in the data set.
 
 ```{r}
 #| label: medicalcoder-charlson-current
-tic <- Sys.time()
-
 medicalcoder_charlson_current <-
   medicalcoder::comorbidities(
     data        = mimicivDT,  # object inheriting data.frame
@@ -411,11 +409,6 @@ medicalcoder_charlson_current <-
     method      = "charlson_quan2005",
     flag.method = "current" # default
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_charlson_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 The next call will apply the Charlson [@quan2005] comorbidities to the MIMIC-IV
@@ -435,8 +428,6 @@ Two important things to note about the following call.
 
 ```{r}
 #| label: medicalcoder-charlson-cumulative
-tic <- Sys.time()
-
 medicalcoder_charlson_cumulative <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -450,11 +441,6 @@ medicalcoder_charlson_cumulative <-
     method      = "charlson_quan2005",
     flag.method = "cumulative"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_charlson_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 #### Elixhauser
@@ -463,8 +449,6 @@ Applying Elixhauser requires a only a change to the `method` argument.
 
 ```{r}
 #| label: medicalcoder-elixhauser-current
-tic <- Sys.time()
-
 medicalcoder_elixhauser_current <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -477,17 +461,10 @@ medicalcoder_elixhauser_current <-
     method      = "elixhauser_quan2005",
     flag.method = "current"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_elixhauser_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 ```{r}
 #| label: medicalcoder-elixhauser-cumulative
-tic <- Sys.time()
-
 medicalcoder_elixhauser_cumulative <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -500,11 +477,6 @@ medicalcoder_elixhauser_cumulative <-
     method      = "elixhauser_quan2005",
     flag.method = "cumulative"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_elixhauser_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 #### PCCC v2.0
@@ -515,9 +487,7 @@ additional ICD codes based on our interpretation of the intention of the
 mappings based on the supplements to @feudtner2014pediatric.
 
 ```{r}
-#| label: medicalcoder-pcccv2-current
-tic <- Sys.time()
-
+#| label: medicalcoder-pcccv2.0-current
 medicalcoder_pcccv2.0_current <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -529,17 +499,10 @@ medicalcoder_pcccv2.0_current <-
     method      = "pccc_v2.0",
     flag.method = "current"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_pcccv2.0_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 ```{r}
-#| label: medicalcoder-pcccv2-cumulative
-tic <- Sys.time()
-
+#| label: medicalcoder-pcccv2.0-cumulative
 medicalcoder_pcccv2.0_cumulative <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -552,11 +515,6 @@ medicalcoder_pcccv2.0_cumulative <-
     method      = "pccc_v2.0",
     flag.method = "cumulative"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_pcccv2.0_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 #### PCCC v3
@@ -571,9 +529,7 @@ to also be flagged.  This makes longitudinal flagging particularly difficult.
 Examples to follow.
 
 ```{r}
-#| label: medicalcoder-pcccv3-current
-tic <- Sys.time()
-
+#| label: medicalcoder-pcccv3.1-current
 medicalcoder_pcccv3.1_current <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -585,17 +541,10 @@ medicalcoder_pcccv3.1_current <-
     method      = "pccc_v3.1",
     flag.method = "current"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_pcccv3.1_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 ```{r}
-#| label: medicalcoder-pcccv3-cumulative
-tic <- Sys.time()
-
+#| label: medicalcoder-pcccv3.1-cumulative
 medicalcoder_pcccv3.1_cumulative <-
   medicalcoder::comorbidities(
     data        = mimicivDT,
@@ -608,11 +557,6 @@ medicalcoder_pcccv3.1_cumulative <-
     method      = "pccc_v3.1",
     flag.method = "cumulative"
   )
-
-toc <- Sys.time()
-
-attr(medicalcoder_pcccv3.1_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs")
 ```
 
 
@@ -708,15 +652,15 @@ odbc::dbWriteTable(conn = con, name = "patients",   value = mimicivdata$patients
 odbc::dbWriteTable(conn = con, name = "ages",       value = mimicivdata$ages)
 
 # Run the query and record the time required to do so
-tic <- Sys.time()
-
 mimiciv_charlson_current <- odbc::dbGetQuery(con, mimiciv_charlson_sql)
 data.table::setDT(mimiciv_charlson_current)
 
 # Note: not all subject, enc_seq (hadm_id) values are in the return.  Add the
 # needed rows # and set all the flags to zero
-nrow(unique(mimicivDT[, .(subject_id, hadm_id, enc_seq)])) >
+stopifnot(
+  nrow(unique(mimicivDT[, .(subject_id, hadm_id, enc_seq)])) >
   nrow(mimiciv_charlson_current)
+)
 
 mimiciv_charlson_current <-
   merge(
@@ -732,10 +676,6 @@ for (j in names(mimiciv_charlson_current)) {
     mimiciv_charlson_current[[j]][idx] <- 0L
   }
 }
-
-toc <- Sys.time()
-
-attr(mimiciv_charlson_current, "tictoc") <- difftime(toc, tic, units = "secs")
 
 # close DB connection
 odbc::dbDisconnect(conn = con)
@@ -766,9 +706,7 @@ The following is done using _comorbidity_ version
 #### Charlson
 
 ```{r}
-#| label: comorbidity-charlson
-tic <- Sys.time()
-
+#| label: comorbidity-charlson-current
 comorbidity_charlson_icd9 <-
   comorbidity::comorbidity(
     x       = subset(mimicivDT, icd_version == 9 & dx == 1L),
@@ -842,13 +780,11 @@ comorbidity_charlson_current[
   `:=`(subject_id = as.integer(subject_id), enc_seq = as.integer(enc_seq))
   ]
 data.table::setkey(comorbidity_charlson_current, subject_id, enc_seq)
+```
 
-# end timing for encounter level flagging
-toc <- Sys.time()
-
+```{r}
+#| label: comorbidity-charlson-cumulative
 # For the cumulative flagging
-tic1 <- Sys.time()
-
 comorbidity_charlson_cumulative <- data.table::copy(comorbidity_charlson_current)
 
 # next we use cumsum to flag conditions moving forward in time
@@ -889,15 +825,6 @@ comorbidity_charlson_cumulative[["score"]] <-
   as.integer(comorbidity_charlson_cumulative[["score"]])
 
 data.table::setDT(comorbidity_charlson_cumulative)
-
-toc1 <- Sys.time()
-
-attr(comorbidity_charlson_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
-
-attr(comorbidity_charlson_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs") +
-  difftime(toc1, tic1, units = "secs")
 ```
 
 #### Elixhauser
@@ -907,9 +834,7 @@ flagging requires changing the `map` argument in the calls to
 `comorbidity::comorbidity()` and there is no scoring to be done.
 
 ```{r}
-#| label: comorbidity-elixhauser
-tic <- Sys.time()
-
+#| label: comorbidity-elixhauser-current
 comorbidity_elixhauser_icd9 <-
   comorbidity::comorbidity(
     x       = subset(mimicivDT, icd_version == 9 & dx == 1L),
@@ -964,13 +889,11 @@ comorbidity_elixhauser_current[
   `:=`(subject_id = as.integer(subject_id), enc_seq = as.integer(enc_seq))
   ]
 data.table::setkey(comorbidity_elixhauser_current, subject_id, enc_seq)
+```
 
-# end timing for encounter level flagging
-toc <- Sys.time()
-
+```{r}
+#| label: comorbidity-elixhauser-cumulative
 # For the cumulative flagging
-tic1 <- Sys.time()
-
 comorbidity_elixhauser_cumulative <- data.table::copy(comorbidity_elixhauser_current)
 
 # next we use cumsum to flag conditions moving forward in time
@@ -990,15 +913,6 @@ for (j in names(comorbidity_elixhauser_cumulative)) {
 comorbidity_elixhauser_cumulative[diabunc  == 1L & diabc    == 1L, diabunc  := 0L]
 comorbidity_elixhauser_cumulative[hypunc   == 1L & hypc     == 1L, hypunc   := 0L]
 comorbidity_elixhauser_cumulative[solidtum == 1L & metacanc == 1L, solidtum := 0L]
-
-toc1 <- Sys.time()
-
-attr(comorbidity_elixhauser_current, "tictoc") <-
-  difftime(toc, tic, units = "secs")
-
-attr(comorbidity_elixhauser_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs") +
-  difftime(toc1, tic1, units = "secs")
 ```
 
 
@@ -1014,7 +928,7 @@ row per encounter, one column for each ICD code.
 The following uses _pccc_ version `r packageVersion("pccc")`.
 
 ```{r}
-#| label: pccc
+#| label: pccc-pcccv2.0-current
 mimicivDT_for_pccc <-
   split(mimicivDT, by = "icd_version") |>
   lapply(
@@ -1022,8 +936,6 @@ mimicivDT_for_pccc <-
     formula = cid ~ ifelse(dx == 1, "DX", "PR") + seq_num,
     value.var = "icd_code"
     )
-
-tic <- Sys.time()
 
 pccc_pcccv2.0_current <-
   rbind(
@@ -1044,7 +956,6 @@ pccc_pcccv2.0_current <-
     )
   )
 
-
 # aggregate over ICD version
 pccc_pcccv2.0_current <-
   aggregate(. ~ cid, data = pccc_pcccv2.0_current, FUN = max)
@@ -1064,12 +975,8 @@ for (j in names(pccc_pcccv2.0_current)[-1]) {
   pccc_pcccv2.0_current[[j]][idx] <- 0L
 }
 
-toc <- Sys.time()
-
-# cumulative flag
-tic1 <- Sys.time()
-
 data.table::setDT(pccc_pcccv2.0_current)
+
 pccc_pcccv2.0_current[,
   c("subject_id", "enc_seq") := data.table::tstrsplit(cid, "__")
   ][
@@ -1080,7 +987,11 @@ pccc_pcccv2.0_current[,
   )]
 
 data.table::setkey(pccc_pcccv2.0_current, subject_id, enc_seq)
+```
 
+```{r}
+#| label: pccc-pcccv2.0-cumulative
+# cumulative flag
 pccc_pcccv2.0_cumulative <- data.table::copy(pccc_pcccv2.0_current)
 
 for (j in names(pccc_pcccv2.0_cumulative)) {
@@ -1090,12 +1001,6 @@ for (j in names(pccc_pcccv2.0_cumulative)) {
     eval(e)
   }
 }
-toc1 <- Sys.time()
-
-attr(pccc_pcccv2.0_current, "tictoc") <- difftime(toc, tic, units = "secs")
-attr(pccc_pcccv2.0_cumulative, "tictoc") <-
-  difftime(toc, tic, units = "secs") +
-  difftime(toc1, tic1, units = "secs")
 ```
 
 ## Consistency in Flags between Utilities
@@ -2258,23 +2163,87 @@ unique hospital encounters, `medicalcoder::comorbidities()` is considerably
 faster than all the alternatives.
 
 ```{r}
+#| label: benchmarking-expressions
+#| include: false
+bench <- new.env()
+expressions <-
+  list(
+    medicalcoder_charlson_current      = parse(text = knitr::knit_code$get("medicalcoder-charlson-current")),
+    medicalcoder_charlson_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-charlson-cumulative")),
+    medicalcoder_elixhauser_current    = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-current")),
+    medicalcoder_elixhauser_cumulative = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-cumulative")),
+    medicalcoder_elixhauser_current    = parse(text = knitr::knit_code$get("medicalcoder-elixhauser-current")),
+    medicalcoder_pcccv2.0_current      = parse(text = knitr::knit_code$get("medicalcoder-pcccv2.0-current")),
+    medicalcoder_pcccv2.0_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-pcccv2.0-cumulative")),
+    medicalcoder_pcccv3.1_current      = parse(text = knitr::knit_code$get("medicalcoder-pcccv3.1-current")),
+    medicalcoder_pcccv3.1_cumulative   = parse(text = knitr::knit_code$get("medicalcoder-pcccv3.1-cumulative")),
+    mimiciv_charlson_current           = parse(text = knitr::knit_code$get("mimic-iv-charlson-results")),
+    comorbidity_charlson_current       = parse(text = knitr::knit_code$get("comorbidity-charlson-current")),
+    comorbidity_elixhauser_current     = parse(text = knitr::knit_code$get("comorbidity-elixhauser-current")),
+    pccc_pcccv2.0_current              = parse(text = knitr::knit_code$get("pccc-pcccv2.0-current"))
+  )
+expressions
+```
+
+```{r}
+#| label: benchmarking
+#| include: false
+benchmarks <-
+  microbenchmark::microbenchmark(
+    medicalcoder__charlson__current      = eval(expressions$medicalcoder_charlson_current,      envir = bench),
+    medicalcoder__charlson__cumulative   = eval(expressions$medicalcoder_charlson_cumulative,   envir = bench),
+    medicalcoder__elixhauser__current    = eval(expressions$medicalcoder_elixhauser_current,    envir = bench),
+    medicalcoder__elixhauser__cumulative = eval(expressions$medicalcoder_elixhauser_cumulative, envir = bench),
+    medicalcoder__pcccv2.0__current      = eval(expressions$medicalcoder_pcccv2.0_current,      envir = bench),
+    medicalcoder__pcccv2.0__cumulative   = eval(expressions$medicalcoder_pcccv2.0_cumulative,   envir = bench),
+    medicalcoder__pcccv3.1__current      = eval(expressions$medicalcoder_pcccv3.1_current,      envir = bench),
+    medicalcoder__pcccv3.1__cumulative   = eval(expressions$medicalcoder_pcccv3.1_cumulative,   envir = bench),
+    mimiciv__charlson__current           = eval(expressions$mimiciv_charlson,                   envir = bench),
+    comorbidity__charlson__current       = eval(expressions$comorbidity_charlson_current,       envir = bench),
+    comorbidity__elixhauser__current     = eval(expressions$comorbidity_elixhauser_current,     envir = bench),
+    pccc__pcccv2.0__current              = eval(expressions$pccc_pcccv2.0_current,              envir = bench),
+    times = 10L
+  )
+saveRDS(benchmarks, file = "benchmarks.rds")
+```
+
+```{r}
+#| label: benchmark-summary
+#| include: false
+benchmarksDT <- data.table::as.data.table(data.table::copy(benchmarks))
+benchmarksDT[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(expr, "__")]
+
+benchmarksDT[, .(min(time/1e9), max(time/1e9)), by = .(expr)]
+
+ggplot2::ggplot(data = benchmarksDT) +
+  ggplot2::aes(x = Algorithm, y = time/1e9, fill = `Flag Method`) +
+  ggplot2::geom_boxplot() +
+  ggplot2::facet_wrap( ~ Tool, nrow = 1, strip.position = "top") +
+  ggplot2::scale_fill_manual(
+    name = "Flag Method",
+    values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
+  ) +
+  ggplot2::labs(x = "Comorbidity Algorithm", y = "Time (seconds)") +
+  ggplot2::theme_bw(base_size = 12) +
+  ggplot2::theme(
+    panel.grid.minor = ggplot2::element_blank(),
+    legend.position = "bottom",
+    axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
+  )
+```
+
+```{r}
 #| label: tbl-time-to-compute
 #| tbl-cap: |
-#|   Time, in seconds, to flag comorbidities via Charlson, Elixhauser, PCCC v2,
-#|   and PCCC v3 and several different utilities in the MIMIC-IV v3.1 dataset.
-#|   The flagging method, current or cumulative is reported.
+#|   Time, in seconds, median and IQR, to flag comorbidities via Charlson,
+#|   Elixhauser, PCCC v2, and PCCC v3 and several different utilities in the
+#|   MIMIC-IV v3.1 dataset. The flagging method, current or cumulative is
+#|   reported.
 #| results: asis
 #| echo: false
 
 ttc <-
-  lapply(objs, attr, "tictoc") |>
-  lapply(as.numeric) |>
-  data.table::as.data.table() |>
-  data.table::melt(measure.vars = names(objs), variable.factor = FALSE)
-
-ttc[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(variable, "_")]
-ttc[, variable := NULL]
-ttc[, value := sprintf("%.2f", value)]
+  benchmarksDT[, .(value = qwraps2::median_iqr(time/1e9)), by = .(Tool, Algorithm, `Flag Method`)]
 
 ttc <-
   data.table::dcast(ttc, Algorithm + `Flag Method` ~ Tool, value.var = "value")
@@ -2340,7 +2309,7 @@ summary tables using tools such as _knitr_
 [@r-kableExtra]
 
 ```{r}
-#| label: tbl-medicalcoder-pcccv2-summary
+#| label: tbl-medicalcoder-pcccv2.0-summary
 #| tbl-cap: |
 #|   Code and resulting table for a summary of the PCCC v2 conditions flagged in
 #|   the MIMIC-IV dataset.

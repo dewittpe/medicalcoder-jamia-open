@@ -3,7 +3,7 @@ RSCRIPTVANILLA := Rscript --vanilla --quiet
 QUARTO := quarto
 
 FIGURES := figure1.pdf figure2.svg
-RDATA   := mimicivDT.rds objs.rds si.rds
+RDATA   := mimicivDT.rds benchmarks.rds objs.rds si.rds
 SUPPLEMENTS := mimiciv-data-analysis.pdf
 MANUSCRIPT := medicalcoder-manuscript.docx
 
@@ -20,7 +20,7 @@ mimiciv-data-analysis.pdf $(RDATA) &: mimiciv-data-analysis.qmd
 figure1.pdf: figure1.qmd
 	$(QUARTO) render $<
 
-figure2.svg: figure2.R objs.rds
+figure2.svg: figure2.R benchmarks.rds
 	$(RSCRIPTVANILLA) $<
 
 clean:
