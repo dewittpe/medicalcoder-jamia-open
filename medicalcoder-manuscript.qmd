@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 2089 / 2000 (excluding tables)
+[**Word count:**]{.underline} 1813 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -634,16 +634,25 @@ and primary diagnosis flags. Default arguments include `flag.method = "current"`
 for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 `subconditions = FALSE`.
 
-**Figure 2:** Number of subjects and encounters in the MIMIC-IV data set with
-different risk profiles (more severe comorbidities and/or more comorbidities)
-with `flag.method = "cumulative"` versus `flag.method = "current"`.  The
-denomiator for Panel (A) is the number of subjects with at least two encounters
-and at least one comorbidity flagged on encounter 2 (implicitly encounter 1 is
-the same regardless of `flag.method`.)  The denomiator for Panel (B) is the
-number of non-initial encounters with at least one comorbidity flag when
-`flag.method = "cumulative".`
+**Figure 2:** Percent of subjects and encounters in the MIMIC-IV data set with
+different comorbidity profiles under `flag.method = "cumulative"` versus
+`flag.method = "current"`. Panel (A) uses as its denominator subjects with at
+least two encounters and at least one comorbidity flagged on encounter 2. Panel
+(B) uses as its denominator non-initial encounters with at least one
+comorbidity flagged under `flag.method = "cumulative"`.
 
 **Figure 2 ALT TEXT:**
+Two-panel grouped bar chart comparing how cumulative longitudinal flagging
+changes comorbidity results relative to encounter-level current flagging for
+three algorithms: Charlson, Elixhauser, and PCCC v3.1. Panel A shows the
+percentage of subjects and Panel B shows the percentage of encounters in four
+categories: different risk profile, zero encounter-level comorbidities but at
+least one longitudinal comorbidity, only differences in classification, and
+differences in classification and/or additional comorbidities. Across both
+panels, the largest percentages are for different risk profile and for
+differences in classification and/or additional comorbidities, with Elixhauser
+generally highest, PCCC v3.1 intermediate, and Charlson lowest; the other two
+categories are much smaller.
 
 **Figure 3:** The median time (in seconds; bar height), and IQR (error bars),
 required to flag comorbidities in the MIMIC-IV v3.1 dataset
