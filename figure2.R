@@ -106,7 +106,7 @@ g <- function(DT, N = "subjects_with_a_cmrb_flag") {
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
       legend.title = ggplot2::element_blank(),
-      legend.key.height = grid::unit(1/8, "npc")
+      legend.key.height = grid::unit(1/10, "npc")
     )
 }
 
@@ -118,8 +118,8 @@ out <-
     a, b,
     ncol = 1,
     labels = c("(A)", "(B)"),
-    label.x = 0.04,
-    label.y = 0.95,
+    label.x = 0.06,
+    label.y = 0.93,
     common.legend = TRUE,
     legend = "right"
   )
@@ -127,8 +127,8 @@ out <-
 ggplot2::ggsave(
   filename = "figure2.svg",
   plot = out,
-  width = 12,
-  height = 9
+  width = 8,
+  height = 5
 )
 
 saveRDS(plotdata, file = "figure2data.rds")

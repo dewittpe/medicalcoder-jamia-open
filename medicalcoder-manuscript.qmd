@@ -50,11 +50,11 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1983 / 2000 (excluding tables)
+[**Word count:**]{.underline} 2089 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
-[**Figures:**]{.underline} 2 / 3
+[**Figures:**]{.underline} 3 / 3
 
 [**Supplementary material:**]{.underline}
 
@@ -623,10 +623,10 @@ https://github.com/dewittpe/medicalcoder-jamiaopen/.
 
 [**Contributorship Statement:**]{.underline} PED designed and developed the
 _medicalcoder_ R package and drafted the manuscript. SR provided critical code
-review and testing.  SR, MR, and TDB all contributed to the conception, design,
-and interpretation and provided important feedback. TDB provided funding. All
-authors critically reviewed the manuscript for important intellectual content
-and approved of the final version of the manuscript.
+review and testing.  JAF, SR, MR, and TDB all contributed to the conception,
+design, and interpretation and provided important feedback. TDB provided
+funding. All authors critically reviewed the manuscript for important
+intellectual content and approved of the final version of the manuscript.
 
 [**Acknowledgments:**]{.underline} We thank Vincent Rubinetti for his assistance
 in designing the _medicalcoder_ logo.
@@ -652,8 +652,7 @@ comorbidities are identified, including encounter-level (`flag.method =
 "current"`) or longitudinal (`flag.method = "cumulative"`) evaluation and how ICD
 codes are matched.
 
-**Figure 1 ALT TEXT:**
-Diagram showing the argument structure of the R function
+**Figure 1 ALT TEXT:** Diagram showing the argument structure of the R function
 `medicalcoder::comorbidities()`. The figure lists three required inputs: a data
 frame containing one ICD code per row (data), the column name containing ICD
 codes (`icd.codes`), and the comorbidity method specification (`method`, such as
@@ -664,38 +663,36 @@ and primary diagnosis flags. Default arguments include `flag.method = "current"`
 for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 `subconditions = FALSE`.
 
-**Figure 2:**
-Number of subjects and encounters in the MIMIC-IV data set with different risk
-profiles (more severe comorbidities and/or more comorbidities) with `flag.method
-= "cumulative"` versus `flag.method = "current"`.  The denomiator for Panel (A)
-is the number of subjects with at least two encounters and at least one
-comorbidity flagged on encounter 2 (implicitly encounter 1 is the same
-regardless of `flag.method`.)  The denomiator for Panel (B) is the number of
-non-initial encounters with at least one comorbidity flag when `flag.method =
-"cumulative".`
+**Figure 2:** Number of subjects and encounters in the MIMIC-IV data set with
+different risk profiles (more severe comorbidities and/or more comorbidities)
+with `flag.method = "cumulative"` versus `flag.method = "current"`.  The
+denomiator for Panel (A) is the number of subjects with at least two encounters
+and at least one comorbidity flagged on encounter 2 (implicitly encounter 1 is
+the same regardless of `flag.method`.)  The denomiator for Panel (B) is the
+number of non-initial encounters with at least one comorbidity flag when
+`flag.method = "cumulative".`
 
 **Figure 2 ALT TEXT:**
 
-
-**Figure 3:** The time required to flag comorbidities in the MIMIC-IV v3.1
-dataset (`r qwraps2::frmt(nrow(mimicivDT))` rows,
+**Figure 3:** The median time (in seconds; bar height), and IQR (error bars),
+required to flag comorbidities in the MIMIC-IV v3.1 dataset
+(`r qwraps2::frmt(nrow(mimicivDT))` rows,
 `r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects,
 `r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique
-encounters) by utility (panels) and flagging method.  The MIMIC-IV code time is based on
-running RSQLite code for an in-memory database.  R packages _comorbidity_ and
-_pccc_ require multiple calls and aggregations to handle the mixed use of ICD-9
-and ICD-10 within the MIMIC-IV dataset.  Applying each of the
-comorbidity algorithms and flagging methods within _medicalcoder_ requires only
-modifying the `method` and `flag.method` argument to the
-`medicalcoder::comorbidities()` call.  Some panels are sparse, illustrating the
-limited comorbidities method provided by the utility.  The times were recorded
-when building the supplement in `r si$platform$version` on `r si$platform$os`
-with a `r si$platform$CPU` and `r si$platform$RAM` RAM.
+encounters) by utility (panels) and flagging method for N = 10 iterations.
+The MIMIC-IV code time is based on running RSQLite code for an in-memory
+database.  R packages _comorbidity_ and _pccc_ require multiple calls and
+aggregations to handle the mixed use of ICD-9 and ICD-10 within the MIMIC-IV
+dataset.  Applying each of the comorbidity algorithms and flagging methods
+within _medicalcoder_ requires only modifying the `method` and `flag.method`
+argument to the `medicalcoder::comorbidities()` call.  Some panels are sparse,
+illustrating the limited comorbidities method provided by the utility.  The
+times were recorded when building the supplement in `r si$platform$version` on
+`r si$platform$os` with a `r si$platform$CPU` and `r si$platform$RAM` RAM.
 
 **Figure 3 ALT TEXT:**
-
-Four-panel grouped bar chart showing time in seconds to flag comorbidities in
-the MIMIC-IV v3.1 dataset. Panels compare four utilities: _comorbidity_,
+Four-panel grouped bar chart showing median time in seconds to flag comorbidities in
+the MIMIC-IV v3.1 dataset (N = 10 iterations). Panels compare four utilities: _comorbidity_,
 _medicalcoder_, MIMIC-IV code, and _pccc_. The x-axis lists comorbidity
 algorithms: Charlson, Elixhauser, PCCC version 2.0, and PCCC version 3.1. The
 y-axis is time in seconds from 0 to about 160. Blue bars indicate cumulative
