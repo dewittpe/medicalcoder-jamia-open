@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1819 / 2000 (excluding tables)
+[**Word count:**]{.underline} 1828 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -145,7 +145,7 @@ and requires manual reconciliation of mixed-version datasets
 Despite the importance of longitudinal data in modern medical research,
 comorbidity software typically operates at the encounter level. While the AHRQ
 [@ahrq2025] Elixhauser variants account for present-on-admission (POA)
-indicators and exemptions, they does not propagate conditions across encounters
+indicators and exemptions, they do not propagate conditions across encounters
 within a patient record. Conditions that arise during acute care and should not
 be considered comorbidities for the present encounter are handled via POA
 indicators. However, unless the relevant ICD codes are flagged as POA on
@@ -218,7 +218,7 @@ Charlson variants include Deyo (as denoted in @quan2005), Quan (2005; 2011), and
 CDMF (2019). Elixhauser variants include the original Elixhauser (1988), AHRQ
 Web (ICD-9 based as denoted in @quan2005), Quan (2005), and AHRQ ICD-10
 fiscal-year implementations (2022–2026). PCCC variants include versions 2.0,
-2.1, 3.0, and 3.1.
+2.1, 3.0, and 3.1. Additional variants will be added as they are released.
 
 A comprehensive test suite runs as a GitHub Action and on the Comprehensive R
 Archive Network (CRAN). An additional test suite runs on demand for all released
@@ -235,7 +235,7 @@ and the SQL code provided by MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is
 verified.
 
 [^d]: The test directory within the source medicalcoder_<version>.tar.gz
-  contains these tests are are checked prior to CRAN submissions.  Detail on
+  contains these tests, which are checked prior to CRAN submissions. Detail on
   building the expected output from AHRQ via SAS is found here:
   https://github.com/dewittpe/medicalcoder/blob/main/tests/build-expected-ahrq-results/README.md.
 
@@ -365,7 +365,7 @@ comorbidity flagged on encounter 2 via `flag.method = "cumulative"`,
 `flag.method = "current"` and at least one comorbidity with `flag.method =
 'cumulative'`.
 
-PCCC v3 and AHRQ Elixhauser (post 2022) are more complex algorithms. PCCC
+The PCCC v3 and post-2022 AHRQ Elixhauser algorithms are more complex. PCCC
 v3 conditions depend on whether technology-dependent codes co-occur (or
 eventually co-occur) with non–technology-dependent codes (Table 2). Elixhauser
 from AHRQ post 2022 account for POA status of ICD codes (example in Supplement.)
@@ -380,7 +380,7 @@ hardcoding the table number as a result
 ::: {custom-style="tablecap"}
 **Table 2:** Flagging of comorbidities under PCCC v3 for MIMIC-IV subject
 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to
-a ICD code that is not technology-dependent.  Tech denotes flagging of a
+an ICD code that is not technology-dependent.  Tech denotes flagging of a
 comorbidity based on the presence of at least one technology-dependent ICD
 code and the presence of at least one non-technology-dependent code for
 another comorbidity. DxPrTech denotes flagging due to both
@@ -572,7 +572,7 @@ _medicalcoder_ is a fully self-contained R package with a detailed and robust
 internal ICD database that can efficiently apply many comorbidity algorithms to
 a dataset while accounting for ICD-version, ICD-type, POA, primary diagnosis,
 and full and compact ICD codes. Flagging codes can be done for individual
-patient/encounters, or longitudinally within a patient record.
+patient encounters, or longitudinally within a patient record.
 
 {{< pagebreak >}}
 
@@ -630,17 +630,17 @@ frame containing one ICD code per row (data), the column name containing ICD
 codes (`icd.codes`), and the comorbidity method specification (`method`, such as
 "charlson_quan2005"). Additional optional parameters allow users to specify
 encounter identifiers, ICD version (9 or 10), diagnosis versus procedure
-indicators, present-on- admission status, patient age (for Charlson algorithms),
+indicators, present-on-admission status, patient age (for Charlson algorithms),
 and primary diagnosis flags. Default arguments include `flag.method = "current"`
 for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 `subconditions = FALSE`.
 
 **Figure 2:** Percent of subjects and encounters in the MIMIC-IV dataset with
 different comorbidity profiles under `flag.method = "cumulative"` versus
-`flag.method = "current"`. Panel (A) uses as its denominator subjects with at
-least two encounters and at least one comorbidity flagged on encounter 2. Panel
-(B) uses as its denominator non-initial encounters with at least one
-comorbidity flagged under `flag.method = "cumulative"`.
+`flag.method = "current"`. Panel (A) uses subjects with at least two
+encounters and at least one comorbidity flagged on encounter 2 as the
+denominator. Panel (B) uses non-initial encounters with at least one
+comorbidity flagged under `flag.method = "cumulative"` as the denominator.
 
 **Figure 2 ALT TEXT:** Two-panel grouped bar chart comparing how cumulative
 longitudinal flagging changes comorbidity results relative to encounter-level
