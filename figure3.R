@@ -29,4 +29,6 @@ g <-
       axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
     )
 
+saveRDS(benchmarksDT, "figure3data.rds")
 ggplot2::ggsave(plot = g, filename = "figure3.svg", width = 6, height = 4)
+

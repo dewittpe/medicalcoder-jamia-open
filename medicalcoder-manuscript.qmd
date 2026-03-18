@@ -22,9 +22,9 @@ loadNamespace("data.table")
 loadNamespace("medicalcoder")
 mimicivDT <- readRDS("mimicivDT.rds")
 objs <- readRDS("objs.rds")
-benchmarks <- readRDS("benchmarks.rds")
 si <- readRDS("si.rds")
 figure2data <- readRDS("figure2data.rds")
+figure3data <- readRDS("figure3data.rds")
 ```
 
 **Authors**: Peter E. DeWitt^1^, PhD; Seth Russell^1^, MS; James A. Feinstein, MD, MPH^2,3,4^; Margaret N. Rebull^1^, MA; Tellen D. Bennett^1,5^, MD, MS
@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1812 / 2000 (excluding tables)
+[**Word count:**]{.underline} 1819 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -145,7 +145,7 @@ and requires manual reconciliation of mixed-version datasets
 Despite the importance of longitudinal data in modern medical research,
 comorbidity software typically operates at the encounter level. While the AHRQ
 [@ahrq2025] Elixhauser variants account for present-on-admission (POA)
-indicators and exemptions, it does not propagate conditions across encounters
+indicators and exemptions, they does not propagate conditions across encounters
 within a patient record. Conditions that arise during acute care and should not
 be considered comorbidities for the present encounter are handled via POA
 indicators. However, unless the relevant ICD codes are flagged as POA on
@@ -170,14 +170,13 @@ patient encounters.
 # Materials and Methods
 
 _medicalcoder_ was designed to be fully self-contained and deployable in
-restricted computing environments with limited or no internet access
-and tightly controled system settings and software. No external namespaces are imported; R &geq;
-3.5.0 is the only required dependency, reflecting changes to R's serialization
-format introduced in that version[^a]. Several packages are suggested for enhanced
-performance (data.table [@r-data.table] and dplyr [@r-dplyr]) and for testing
-and documentation, but are not required for installation or use.
+restricted computing environments with limited or no internet access and tightly
+controlled system settings and software. No external namespaces are imported; R
+&geq; 3.5.0 is the only required dependency, ensuring compatibility with modern
+R serialization formats. Several packages are suggested for enhanced performance
+(data.table [@r-data.table] and dplyr [@r-dplyr]) and for testing and
+documentation, but are not required for installation or use.
 
-[^a]: https://cran.r-project.org/src/base/NEWS.3#:~:text=R%20has%20new,to%20version%203.5.0
 
 ```{r}
 #| label: icd-src-years
@@ -284,7 +283,8 @@ and `icdv.var`): arguments without the `.var` suffix specify dataset-level
 invariants, whereas `.var` arguments reference columns encoding row-level
 variation. This avoids creating constant-valued columns when dataset-level
 properties are already known while still supporting heterogeneous datasets. When
-both forms are supplied, the column-based form takes precedence with a warning.
+both forms are supplied, the `.var` form takes precedence and a warning is
+issued.
 
 The `id.vars` argument controls how comorbidities are summarized into
 encounter-level flags. When flag.method = "current", `id.vars` is optional; if
@@ -297,8 +297,8 @@ The ordering variable may be a date/time (e.g., admission time) or a numeric
 sequence (e.g., encounter number). In large datasets, using an integer sequence
 often reduces overhead relative to sorting and joining on POSIXct timestamps.
 
-`medicalcoder::comorbidities()` returns a data.frame with class consistent with
-the input, containing the `id.vars`, one indicator column per comorbidity, and
+`medicalcoder::comorbidities()` returns an object of the same class as the input
+data.frame, containing the `id.vars`, one indicator column per comorbidity, and
 summary columns `num_cmrb` and `cmrb_flag`. _medicalcoder_ also provides an S3
 `summary()` method to generate count and percentage tables (Table 1).
 
@@ -334,8 +334,8 @@ gt::gt(
 
 Flagging of comorbidities at the encounter-level only assumes all relevant ICD
 codes are reported on all encounters and correctly marked as POA.  This is
-rarely the case. Accumulation of encounter-level flags is insufficient to
-capture comorbidities and/or the severity of disease.
+rarely the case.
+Naïve accumulation of encounter-level flags is insufficient to accurately capture both the presence and severity of comorbidities.
 
 ```{r}
 #| include: false
@@ -356,16 +356,16 @@ es <-
 ```
 Figure 2 shows the impact on risk profiles for subjects and encounters by
 flagging method and algorithm.  For example,
-For `r N` subjects with at least two encounters and at least one Elixhauser
+`r N` subjects with at least two encounters and at least one Elixhauser
 comorbidity flagged on encounter 2 via `flag.method = "cumulative"`,
 `r cs[1]` subjects have at least one encounter with a different risk profile
 (different classification of comorbidities and/or count of comorbidities) under
 `flag.method = "cumulative"` compared to `flag.method = "current"`.
-`r cs[2]` subjects had at least one encouter with zero comorbidities per
+`r cs[2]` subjects had at least one encounter with zero comorbidities per
 `flag.method = "current"` and at least one comorbidity with `flag.method =
 'cumulative'`.
 
-Naïve post hoc accumulation of encounter-level flags can miss conditions. PCCC
+PCCC v3 and AHRQ Elixhauser (post 2022) are more complex algorithms. PCCC
 v3 conditions depend on whether technology-dependent codes co-occur (or
 eventually co-occur) with non–technology-dependent codes (Table 2). Elixhauser
 from AHRQ post 2022 account for POA status of ICD codes (example in Supplement.)
@@ -499,8 +499,8 @@ v2, _pccc_ showed several technology-dependent and transplant mapping errors.
 
 In addition to _medicalcoder_ showing consistent, or better, flagging of
 comorbidities compared to other utilities, _medicalcoder_ does so with less
-computational expense, Figure 3.  The package GitHub has details on benchmarking
-by input data class and size.
+computational expense, Figure 3.  The package GitHub repository has details on
+benchmarking by input data class and size.
 
 _medicalcoder_ also provides ICD utility functions for data preparation and
 validation. `medicalcoder::get_icd_codes()` exposes the internal ICD database,
@@ -537,7 +537,8 @@ current record. As demonstrated in Table 2, this assumption can lead to
 systematic under-ascertainment of comorbidities, particularly for conditions
 governed by POA rules or technology-dependent classification criteria. By
 explicitly tracking diagnostic history across encounters, _medicalcoder_ enables
-comorbidity flagging that more closely reflects clinical reality.
+comorbidity flagging that more closely reflects the longitudinal nature of
+clinical disease.
 
 The unified interface provided by _medicalcoder_ further reduces analytic
 complexity. Mixed ICD-9 and ICD-10 datasets, full and compact codes, diagnostic
@@ -634,25 +635,24 @@ and primary diagnosis flags. Default arguments include `flag.method = "current"`
 for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 `subconditions = FALSE`.
 
-**Figure 2:** Percent of subjects and encounters in the MIMIC-IV data set with
+**Figure 2:** Percent of subjects and encounters in the MIMIC-IV dataset with
 different comorbidity profiles under `flag.method = "cumulative"` versus
 `flag.method = "current"`. Panel (A) uses as its denominator subjects with at
 least two encounters and at least one comorbidity flagged on encounter 2. Panel
 (B) uses as its denominator non-initial encounters with at least one
 comorbidity flagged under `flag.method = "cumulative"`.
 
-**Figure 2 ALT TEXT:**
-Two-panel grouped bar chart comparing how cumulative longitudinal flagging
-changes comorbidity results relative to encounter-level current flagging for
-three algorithms: Charlson, Elixhauser, and PCCC v3.1. Panel A shows the
-percentage of subjects and Panel B shows the percentage of encounters in four
-categories: different risk profile, zero encounter-level comorbidities but at
-least one longitudinal comorbidity, only differences in classification, and
-differences in classification and/or additional comorbidities. Across both
-panels, the largest percentages are for different risk profile and for
-differences in classification and/or additional comorbidities, with Elixhauser
-generally highest, PCCC v3.1 intermediate, and Charlson lowest; the other two
-categories are much smaller.
+**Figure 2 ALT TEXT:** Two-panel grouped bar chart comparing how cumulative
+longitudinal flagging changes comorbidity results relative to encounter-level
+current flagging for three algorithms: Charlson, Elixhauser, and PCCC v3.1.
+Panel A shows the percentage of subjects and Panel B shows the percentage of
+encounters in four categories: different risk profile, zero encounter-level
+comorbidities but at least one longitudinal comorbidity, only differences in
+classification, and differences in classification and/or additional
+comorbidities. Across both panels, the largest percentages are for different
+risk profile and for differences in classification and/or additional
+comorbidities, with Elixhauser generally highest, PCCC v3.1 intermediate, and
+Charlson lowest; the other two categories are much smaller.
 
 **Figure 3:** The median time (in seconds; bar height), and IQR (error bars),
 required to flag comorbidities in the MIMIC-IV v3.1 dataset
@@ -670,17 +670,28 @@ illustrating the limited comorbidities method provided by the utility.  The
 times were recorded when building the supplement in `r si$platform$version` on
 `r si$platform$os` with a `r si$platform$CPU` and `r si$platform$RAM` RAM.
 
-**Figure 3 ALT TEXT:**
-Four-panel grouped bar chart showing median time in seconds to flag comorbidities in
-the MIMIC-IV v3.1 dataset (N = 10 iterations). Panels compare four utilities: _comorbidity_,
-_medicalcoder_, MIMIC-IV code, and _pccc_. The x-axis lists comorbidity
-algorithms: Charlson, Elixhauser, PCCC version 2.0, and PCCC version 3.1. The
-y-axis is time in seconds from 0 to about 160. Blue bars indicate cumulative
-flagging and maroon bars indicate current flagging. Only _medicalcoder_ has
-cumulative bars as it is the only utility natively supporting cumulative
-flagging.  _medicalcoder_ is the fastest in every comparison shown, with times
-of about 3 to 14 seconds across all four algorithms and flag methods.
-_comorbidity_ is slower, at about 54 seconds for current Charlson, 76 seconds
-for current Elixhauser. The MIMIC-IV code panel shows a single current Charlson
-result at about 106 seconds. The _pccc_ panel shows only PCCC version 2.0, with
-about 152 seconds for current flagging.
+```{r}
+#| label: for-figure3-alt-text
+#| include: false
+mdcr_f3_range <- figure3data[Tool == "medicalcoder", floor(range(time / 1e9))]
+cmrb_f3_char_median <- figure3data[Tool == "comorbidity" & Algorithm == "charlson", floor(median(time / 1e9))]
+cmrb_f3_elix_median <- figure3data[Tool == "comorbidity" & Algorithm == "elixhauser", floor(median(time / 1e9))]
+mmic_f3_median <- figure3data[Tool == "mimiciv", floor(median(time / 1e9))]
+pccc_f3_median <- figure3data[Tool == "pccc", floor(median(time / 1e9))]
+```
+
+**Figure 3 ALT TEXT:** Four-panel grouped bar chart showing median time in
+seconds to flag comorbidities in the MIMIC-IV v3.1 dataset (N = 10 iterations).
+Panels compare four utilities: _comorbidity_, _medicalcoder_, MIMIC-IV code, and
+_pccc_. The x-axis lists comorbidity algorithms: Charlson, Elixhauser, PCCC
+version 2.0, and PCCC version 3.1. The y-axis is time in seconds from 0 to about
+160. Blue bars indicate cumulative flagging and maroon bars indicate current
+flagging. Only _medicalcoder_ has cumulative bars as it is the only utility
+natively supporting cumulative flagging.  _medicalcoder_ is the fastest in
+every comparison shown, with times of about `r mdcr_f3_range[1]` to
+`r mdcr_f3_range[2]` seconds across all four algorithms and flag methods.
+_comorbidity_ is slower, at about `r cmrb_f3_char_median` seconds for Charlson,
+`r cmrb_f3_elix_median` seconds for Elixhauser. The MIMIC-IV code panel shows a
+single Charlson result at about `r mmic_f3_median` seconds. The _pccc_ panel
+shows only PCCC version 2.0, with about `r pccc_f3_median` seconds for current
+flagging.
