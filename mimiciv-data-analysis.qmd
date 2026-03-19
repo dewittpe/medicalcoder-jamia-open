@@ -78,7 +78,7 @@ set by PhysioNet[^1].
 
 Within the _medicalcoder_ package are implementations for several variants of
 the Charlson, Elixhauser, and PCCC comorbidity algorithms,
-(@tbl-comorbidity-methods) [@quan2005;@quan2011;@glasheen2019;@ahrq2025;@feudtner2014pediatric;@feinstein2024pediatric;@r-pccc;@feinstein2018pccc;@pcccv3sas].
+(@tbl-comorbidity-methods) [@quan2005;@quan2011;@glasheen2019;@ahrq2025;@feudtner2014pediatric;@feinstein2024pediatric;@dewitt2026pccc;@feinstein2018pccc;@pcccv3sas].
 
 For this supplement we focus on `charlson_quan2005`,
 `elixhauser_quan2005`, `pccc_v2.0`, and `pccc_3.1`.
@@ -136,7 +136,7 @@ comorbidities flagged by the MIMIC-IV code, and the R package _comorbidity_
 [@r-comorbidity].  For Elixhauser we will compare results between
 `medicalcoder::comorbidities()` and `comorbidity::comorbidity()`.  Lastly, we
 will compare PCCC version 2 results between `medicalcoder::comorbidities()` and
-the R package _pccc_ [@r-pccc] call `pccc::ccc()`.
+the R package _pccc_ [@dewitt2026pccc] call `pccc::ccc()`.
 
 # Results
 
@@ -420,7 +420,7 @@ Two important things to note about the following call.
 1. Longitudinal results within a subject is returned when `flag.method = 'cumulative'`.
 
 2. There is an expectation that there are at least two identification variables.
-   The last one needs to be sortable variable.  That is  `id.vars =
+   The last one needs to be a sortable variable.  For example, `id.vars =
    c("subject_id", "eqn_seq")` means that the data will be sorted by `subject_id`
    and `enc_seq` with `enc_seq = 1` considered to be occur before `enc_seq = 2`,
    etc.  In the MIMIC-IV v3.1 data, the `hadm_id` are not sequential within a
@@ -522,7 +522,7 @@ medicalcoder_pcccv2.0_cumulative <-
 PCCC v3 [@feinstein2024pediatric] differs from PCCC v2 [@feudtner2014pediatric]
 in two major ways: (1) Updated mappings between ICD codes and conditions. (2)
 How conditions flagged by technology dependence are handled.  If the only reason
-for a conditions to be flagged is due to technology dependence then under PCCC
+for a condition to be flagged is due to technology dependence then under PCCC
 v3 the condition _will not_ be flagged.  At least one non-technology dependent
 code needs to be in the patient record for the technology-dependent conditions
 to also be flagged.  This makes longitudinal flagging particularly difficult.
@@ -831,7 +831,7 @@ data.table::setDT(comorbidity_charlson_cumulative)
 
 Compared to the work done for flagging Charlson comorbidities, Elixhauser
 flagging requires changing the `map` argument in the calls to
-`comorbidity::comorbidity()` and there is no scoring to be done.
+`comorbidity::comorbidity()`. Elixhauser has no scoring mechanism.
 
 ```{r}
 #| label: comorbidity-elixhauser-current
@@ -918,7 +918,7 @@ comorbidity_elixhauser_cumulative[solidtum == 1L & metacanc == 1L, solidtum := 0
 
 ### `pccc::ccc()`
 
-The R package _pccc_ [@r-pccc] implements PCCC v2 [@feudtner2014pediatric].  As
+The R package _pccc_ [@dewitt2026pccc] implements PCCC v2 [@feudtner2014pediatric].  As
 with `comorbidity::comorbidity()` and many other implementations of
 comorbidities, only one version of ICD is assessed at a time.
 
@@ -1007,12 +1007,12 @@ for (j in names(pccc_pcccv2.0_cumulative)) {
 
 ### `medicalcoder::comorbidities()` vs MIMIC-IV Code
 
-Comparing the results between `medicalcoder::comorbidities()` and MIMIC-IV code
-for Charlson comorbidities at the encounter level should note that the number of
+In comparing the results between `medicalcoder::comorbidities()` and MIMIC-IV code
+for Charlson comorbidities at the encounter level, one should note that the number of
 rows returned differed.  In the code above that was rectified.
 `medicalcoder::comorbidities()` returned a row for each subject_id, enc_seq
 (hadm_id) pair, whereas the MIMIC-IV code did not return a row for each.  This
-was resolved above and zeros imputed for the subject_id, hadm_id which were
+was resolved above and zeros were imputed for the subject_id, hadm_id which were
 omitted from the `mimiciv_charlson_current` object.
 
 We build one data.frame to make the comparisons between the two methods easier.
@@ -1115,9 +1115,9 @@ for (i in seq_len(nrow(mvm_columns))) {
 }
 ```
 
-The differences in the age score is simple.  In the MIMIC-IV Code, the records
-without an age were dropped, `medicalcoder::comorbidities()` returned rows for
-these subjects. In all cases there where no comorbidities flagged.
+The differences in the age score are simple to explain.  In the MIMIC-IV Code, the records
+without an age were dropped, whereas `medicalcoder::comorbidities()` returned rows for
+these subjects. In all cases there were no comorbidities flagged.
 
 ```{r}
 #| label: mdcr-v-mimiciv-age-score
@@ -1134,7 +1134,7 @@ mdcr_v_mimiciv[, age_score_mimiciv := NULL]
 All that is left in `mdcr_v_mimiciv` are the id.vars and the
 `num_cmrb`, and `cmrb_flag`.  These columns are from
 `medicalcoder::comorbidities()` and report the number of comorbidities flagged
-and indicator for any comorbidity.
+and an indicator for any comorbidity.
 
 ```{r}
 #| label: show-remainder-of-mdcr-v-mimicivcode
@@ -1198,7 +1198,7 @@ mvc_columns <-
 ```
 
 The following `for` loop will check if the columns are identical, removing from
-the object is so, and printing a message if not.
+the object if so, and printing a message if not.
 ```{r}
 #| label: mdcr-v-cmrb-charlson-column-tests
 for (i in seq_len(nrow(mvc_columns))) {
@@ -1409,9 +1409,9 @@ stopifnot(
 ```
 
 The `mortality_index` and `readmission_index` are based on the weights from AHRQ
-in this case were `method = "elixhauser_quan2005"`.  For `method =
+and in this case were from `method = "elixhauser_quan2005"`.  For `method =
 "elixhauser_ahrqXXXX"` other weights may be applied.  To see the specific
-weights used by method call `medicalcoder::get_elixhauser_index_scores()`
+weights used by each method call `medicalcoder::get_elixhauser_index_scores()`
 
 ```{r}
 #| label: medicalcoder-get-elixhauser-index-scores
@@ -1759,7 +1759,7 @@ flagmethod_plot <- function(data) {
 flagmethod_plot(flagmethod_delta[algo == "charlson"])
 ```
 
-Diabetes is a great example for the benefits of `flag.method = "cumulative"`.
+Diabetes is a great example of the benefits of `flag.method = "cumulative"`.
 As we account for a patient history, the number of encounters flagged as having
 uncomplicated diabetes decreases and the number of encounters flagged as having
 complicated diabetes increases.
@@ -1801,8 +1801,8 @@ s10009326 <-
   ]
 ```
 
-An example of a patient record where on an encounter level flagging approach
-diabetes will be missed entirely and the severity is inaccurate is in
+As an example of a patient record where an encounter level flagging approach
+misses diabetes and the severity is inaccurate, see
 @tbl-dm-10009326.  Subject 10009326 had `r nrow(s10009326)` encounters.  At
 least one ICD code mapping to uncomplicated diabetes under the Charlson _a la_
 @quan2005 appeared in `r sum(s10009326$dm_current)` encounters, and
@@ -1864,7 +1864,7 @@ flagmethod_plot(flagmethod_delta[algo == "elixhauser"])
 @fig-flagmethod-delta-pcccv2.0 and @fig-flagmethod-delta-pcccv3.1 illustrate
 the impact of the flagging method when identifying PCCC comorbidities under
 PCCC v2 and PCCC v3 respectively.  @fig-flagmethod-delta-pcccv3.1 is of
-particular interest as the implications of technology-dependent codes in PCCC v3
+particular interest as it shows the implications of how technology-dependent codes in PCCC v3
 are handled have considerable impact on the flagged comorbidities.
 
 ```{r}
@@ -2092,8 +2092,8 @@ s10728333v2[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
 
 AHRQ Elixhauser for years 2022 and beyond use ICD-10 diagnostic codes and
 require some ICD-codes to be present-on-admission for the comorbidity to be
-flag.  The MIMIC data does not have a present-on-admission flag.  For this
-example let's assume that all codes are not POA.
+flagged.  The MIMIC data does not have a present-on-admission flag.  For this
+example, let's assume that all codes are not POA.
 
 ```{r}
 common_args <-
@@ -2299,14 +2299,14 @@ kableExtra::pack_rows(
 
 The _medicalcoder_ package provides an S3 summary method for the objects
 returned by `medicalcoder::comorbidities()`.  The summaries differ slightly
-depending of the comorbidity algorithm (`method`). Charlson and Elixhauser
+depending on the comorbidity algorithm (`method`). Charlson and Elixhauser
 return lists with multiple summaries and the PCCC return is a data.frame of
 summaries.
 
 When the `flag.method = 'current'`, the `conditions` element of the summary for
 the Charlson and Elixhauser comorbidities is a data.frame with counts and
 percentages of the distinct `id.vars` with a given comorbidity, and counts of
-comorbidities.  For PCCC v2 and v3, the return is only this data.frame.   When
+comorbidities.  For PCCC v2 and v3, the return is only this data.frame.  When
 the flag method is cumulative, a warning is given stating that the summary may
 not be meaningful as it is an encounter level summary.
 
