@@ -121,7 +121,7 @@ conditions that appear earlier in their history.
 _medicalcoder_ is fast, works with base R, has extensive automated tests, and
 has been validated against reference implementations. It helps researchers apply
 comorbidity algorithms more accurately and consistently, improving the quality
-and reproducibility of studies using electronic health record or administrative
+and reproducibility of studies using electronic health records or administrative
 data.
 
 :::
