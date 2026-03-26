@@ -50,7 +50,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Article type:**]{.underline} Application Note
 
-[**Word count:**]{.underline} 1828 / 2000 (excluding tables)
+[**Word count:**]{.underline} 1880 / 2000 (excluding tables)
 
 [**Tables:**]{.underline} 2 / 2
 
@@ -141,16 +141,24 @@ Existing software for flagging comorbidities typically implements one or two
 algorithms, most often variants of Charlson and Elixhauser, supports either
 ICD-9 or ICD-10 (but not both simultaneously),
 and requires manual reconciliation of mixed-version datasets
-[@r-comorbidity;@feudtner2014pediatric;@r-pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity].
+[@r-comorbidity;@feudtner2014pediatric;@dewitt2026pccc;@pcccv3sas;@r-icdcomorbid;@r-multimorbidity].
 
-Despite the importance of longitudinal data in modern medical research,
-comorbidity software typically operates at the encounter level. While the AHRQ
-[@ahrq2025] Elixhauser variants account for present-on-admission (POA)
-indicators and exemptions, they do not propagate conditions across encounters
-within a patient record. Conditions that arise during acute care and should not
-be considered comorbidities for the present encounter are handled via POA
-indicators. However, unless the relevant ICD codes are flagged as POA on
-subsequent encounters, those comorbidities will not be correctly classified.
+Despite the importance of longitudinal data in modern medical
+research[@hripcsak2013next;@casey2016using;@jensen2014temporal], comorbidity
+software typically operates at the encounter
+level[@pcccv3sas;@ahrq2017;@dewitt2026pccc;@ahrq2025;@feinstein2018pccc;@r-comorbidity;@r-icdcomorbid;@r-multimorbidity;@johnson2018mimic;@johnson2022mimiccode].
+While the AHRQ [@ahrq2025] Elixhauser variants account for present-on-admission
+(POA) indicators and exemptions, they do not propagate conditions across
+encounters within a patient record. As a result, conditions that arise during
+acute care and are appropriately excluded from the index encounter may be missed
+in subsequent encounters unless the relevant ICD codes are explicitly
+re-reported and flagged as POA.
+
+This limitation is particularly important given the high prevalence of chronic
+disease in the United States, where 76.4% of adults report at least one chronic
+condition and 59.5% report two or more[@watson2025trends]. Failing to account
+for longitudinal patient history can therefore lead to systematic
+under-ascertainment of comorbidities and misclassification of patient risk.
 
 There is a need for a tool that applies multiple comorbidity algorithms through
 a unified API while accounting for algorithm-specific nuances, ICD versions and
@@ -229,10 +237,11 @@ versions of R &geq; 3.5.0 without suggested packages, and for versions &geq;
 [^b]: https://github.com/dewittpe/medicalcoder/tree/main/testing
 
 The test suite includes validation between `method = "pccc_v2.0"` and the R
-package _pccc_ [@r-pccc;@feinstein2018pccc], and between `method =
+package _pccc_ [@dewitt2026pccc;@feinstein2018pccc], and between `method =
 elixhauser_ahrq20XX` and the published SAS code from AHRQ[^d] [@ahrq2025]. As
 part of the website[^e] build, consistency between `method = charlson_quan2005`
-and the SQL code provided by MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic] is
+and the SQL code provided by
+MIT-LCP/mimic-code/mimic-iv[@johnson2018mimic;@johnson2022mimiccode] is
 verified.
 
 [^d]: The test directory within the source medicalcoder_<version>.tar.gz
@@ -250,9 +259,9 @@ and reproducible research in clinical informatics and outcomes research.
 
 We compare the results of the comorbidity flagging between _medicalcoder_ and
 three alternatives, the MIMIC-IV Code released by the MIT Laboratory for
-Computational Physiology (MIT\_LCP) on
-GitHub[^f], and the R packages _comorbidity_ [@r-comorbidity] and _pccc_
-[@r-pccc].
+Computational Physiology (MIT\_LCP) on GitHub[^f] and
+Zenodo[@johnson2018mimic;@johnson2022mimiccode], and the R packages
+_comorbidity_ [@r-comorbidity] and _pccc_ [@dewitt2026pccc].
 
 [^f]: https://github.com/MIT-LCP/mimic-code.git
 
@@ -493,7 +502,7 @@ DT1 |>
 
 
 The supplement details comparisons with MIMIC-IV code and the R packages
-_comorbidity_ [@r-comorbidity] and _pccc_ [@r-pccc]. Charlson flags matched
+_comorbidity_ [@r-comorbidity] and _pccc_ [@dewitt2026pccc]. Charlson flags matched
 MIMIC-IV code, and Elixhauser flags matched _comorbidity_. For Charlson,
 _comorbidity_ missed malignancies related to ICD-10-CM codes C4A.x; for PCCC
 v2, _pccc_ showed several technology-dependent and transplant mapping errors.
@@ -510,7 +519,7 @@ representations and mixed ICD-9/ICD-10 datasets.
 
 # Discussion
 
-_medicalcoder_ was initially developed to support implementation of Pediatric
+_medicalcoder_ was initially developed to support the implementation of Pediatric
 Complex Chronic Conditions (PCCC) versions 3 [@feinstein2024pediatric] and 2
 [@feudtner2014pediatric]. During this work, it became clear that accurate and
 reproducible PCCC classification required access to a comprehensive,
