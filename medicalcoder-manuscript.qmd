@@ -601,7 +601,7 @@ This manuscript was written using Quarto version
 `r system("quarto --version", intern = TRUE)`
 (https://quarto.org/) and `r R.version.string`. All R code, materials,
 and dependencies can be found at
-https://github.com/dewittpe/medicalcoder-jamiaopen/.
+https://github.com/dewittpe/medicalcoder-jamia-open/.
 
 [**Contributorship Statement:**]{.underline} PED designed and developed the
 _medicalcoder_ R package and drafted the manuscript. SR provided critical code
