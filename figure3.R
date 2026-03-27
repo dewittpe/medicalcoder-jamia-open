@@ -31,4 +31,5 @@ g <-
 
 saveRDS(benchmarksDT, "figure3data.rds")
 ggplot2::ggsave(plot = g, filename = "figure3.svg", width = 6, height = 4)
+ggplot2::ggsave(plot = g, filename = "figure3.pdf", width = 6, height = 4)
 

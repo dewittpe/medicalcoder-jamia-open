@@ -124,12 +124,8 @@ out <-
     legend = "right"
   )
 
-ggplot2::ggsave(
-  filename = "figure2.svg",
-  plot = out,
-  width = 8,
-  height = 5
-)
+ggplot2::ggsave(filename = "figure2.svg", plot = out, width = 8, height = 5)
+ggplot2::ggsave(filename = "figure2.pdf", plot = out, width = 8, height = 5)
 
 saveRDS(plotdata, file = "figure2data.rds")
 
