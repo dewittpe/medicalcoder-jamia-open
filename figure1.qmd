@@ -44,6 +44,8 @@ medicalcoder::comorbidities(
                         #   full ICD codes, e.g., C4A.111
   compact.codes = TRUE, # reference data[[icd.codes]] against
                         #   compact ICD codes, e.g., C4A111
-  subconditions = FALSE # PCCC only: return subcondition flags when available
+  subconditions = FALSE, # PCCC only: return subcondition flags when available
+  mapping = c("precomputed", "regex") # use precomputed (default) mappings of
+                                      # known ICD codes to conditions or regex
 )
 ```
