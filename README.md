@@ -21,6 +21,11 @@ sharing functional code examples.
 * Figures: up to 3.
 * References: unlimited.
 
+### Submissions
+
+* tag v1.0.2 submitted, decision - revise and resubmit.  resubmission due
+  18-July-2026
+
 ## Development work
 
 * System dependencies:
