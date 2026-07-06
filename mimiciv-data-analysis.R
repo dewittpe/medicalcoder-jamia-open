@@ -1517,7 +1517,7 @@ figure2pros[["es"]] <-
     sprintf("%s (%s%%)", fmtn(subjects), formatC(100 * value, format = "f", digits = 1))
   ]
 
-## ---- s10728333 ----
+## ---- s10728333-manuscript ----
 s10728333 <-
   merge(
     x = medicalcoder_pcccv3.1_current[subject_id == 10728333],
@@ -1689,11 +1689,11 @@ ggplot2::ggsave(
 )
 
 ## ---- for-figure3-alt-text ----
-mdcr_f3_range <- benchmarksDT[Tool == "medicalcoder", floor(range(time / 1e9))]
-cmrb_f3_char_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "charlson", floor(median(time / 1e9))]
-cmrb_f3_elix_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "elixhauser", floor(median(time / 1e9))]
-mmic_f3_median <- benchmarksDT[Tool == "mimiciv", floor(median(time / 1e9))]
-pccc_f3_median <- benchmarksDT[Tool == "pccc", floor(median(time / 1e9))]
+mdcr_f3_range <- benchmarksDT[Tool == "medicalcoder", round(range(time / 1e9), digits = 1)]
+cmrb_f3_char_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "charlson", round(median(time / 1e9), digits = 1)]
+cmrb_f3_elix_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "elixhauser", round(median(time / 1e9), digits = 1)]
+mmic_f3_median <- benchmarksDT[Tool == "mimiciv", round(median(time / 1e9), digits = 1)]
+pccc_f3_median <- benchmarksDT[Tool == "pccc", round(median(time / 1e9), digits = 1)]
 
 ## ---- tbl-time-to-compute ----
 kableExtra::kbl(
@@ -1804,20 +1804,20 @@ si <- sessioninfo::session_info()
 si$platform$RAM <- mem_total_gb
 si$platform$CPU <- CPU
 
-si$platform <-
+si$platformDT <-
   data.table::data.table(
     V1 = names(si$platform),
     V2 = do.call(c, si$platform)
   )
 
-si$platform <-
-  si$platform[
+si$platformDT <-
+  si$platformDT[
     V1 %in% c("version", "os", "system", "CPU", "RAM", "date", "pandoc", "quarto")
   ][c(1:3, 8, 7, 4:6)]
 
 ## ---- tbl-session-info-platform ----
 kableExtra::kbl(
-  x = si$platform,
+  x = si$platformDT,
   format = "latex",
   row.names = FALSE,
   col.names = c("Setting", "Value"),

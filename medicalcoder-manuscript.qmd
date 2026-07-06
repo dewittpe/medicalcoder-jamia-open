@@ -29,23 +29,23 @@ qwraps2::lazyload_cache_labels(
 ```
 ```{r}
 #| label: import-mimiciv-data
-#| included: false
+#| include: false
 ```
 ```{r}
 #| label: build-mimicivdata-ages
-#| included: false
+#| include: false
 ```
 ```{r}
 #| label: build-mimicivdata-icd
-#| included: false
+#| include: false
 ```
 ```{r}
 #| label: one-data-set
-#| included: false
+#| include: false
 ```
 ```{r}
 #| label: build-enc-seq
-#| included: false
+#| include: false
 ```
 
 
@@ -411,11 +411,10 @@ non-technology-dependent code.
 :::
 
 ```{r}
-#| label: flagging-table
+#| label: s10728333-manuscript
 #| echo: false
 #| results: asis
 ```
-
 
 The supplement details comparisons with MIMIC-IV code and the R packages
 _comorbidity_ [@r-comorbidity] and _pccc_ [@dewitt2026pccc]. Charlson flags matched
@@ -582,12 +581,15 @@ Charlson lowest; the other two categories are much smaller.
 
 ```{r}
 #| label: mem-total-helper
+#| include: false
 ```
 ```{r}
 #| label: get-cpu-brand
+#| include: false
 ```
 ```{r}
 #| label: sessioninfo-with-memory-cpu
+#| include: false
 ```
 
 **Figure 3:** The median time (in seconds; bar height), and IQR (error bars),
