@@ -16,16 +16,45 @@ csl: jamia.csl
 ```{r}
 #| label: setup
 #| include: false
+#| cache: false
 stopifnot(packageVersion("medicalcoder") >= "0.7.0")
 options(qwraps2_markup = "markdown")
 loadNamespace("data.table")
 loadNamespace("medicalcoder")
-mimicivDT <- readRDS("mimicivDT.rds")
-objs <- readRDS("objs.rds")
-si <- readRDS("si.rds")
-figure2data <- readRDS("figure2data.rds")
-figure3data <- readRDS("figure3data.rds")
+knitr::read_chunk("mimiciv-data-analysis.R")
+qwraps2::lazyload_cache_labels(
+  labels = c("benchmarking"),
+  path = "mimiciv-data-analysis_cache/pdf/"
+)
+
+#mimicivDT <- readRDS("mimicivDT.rds")
+#data.table::setDT(mimicivDT)
+# objs <- readRDS("objs.rds")
+# si <- readRDS("si.rds")
+# figure2data <- readRDS("figure2data.rds")
+# figure3data <- readRDS("figure3data.rds")
 ```
+```{r}
+#| label: import-mimiciv-data
+#| included: false
+```
+```{r}
+#| label: build-mimicivdata-ages
+#| included: false
+```
+```{r}
+#| label: build-mimicivdata-icd
+#| included: false
+```
+```{r}
+#| label: one-data-set
+#| included: false
+```
+```{r}
+#| label: build-enc-seq
+#| included: false
+```
+
 
 **Authors**: Peter E. DeWitt^1^, PhD; Seth Russell^1^, MS; James A. Feinstein, MD, MPH^2,3,4^; Margaret N. Rebull^1^, MA; Tellen D. Bennett^1,5^, MD, MS
 
@@ -190,29 +219,6 @@ documentation, but are not required for installation or use.
 ```{r}
 #| label: icd-src-years
 #| include: false
-aggregate(cbind(known_start, known_end) ~ src + icdv + dx,
-  data = medicalcoder::get_icd_codes(),
-  FUN = range
-  )
-
-cms9 <-
-  with(subset(medicalcoder::get_icd_codes(), icdv == 9 & src == "cms"),
-    paste(min(known_start), max(known_end), sep = " - "))
-cdc9 <-
-  with(subset(medicalcoder::get_icd_codes(), icdv == 9 & src == "cdc"),
-    paste(min(known_start), max(known_end), sep = " - "))
-
-cdc10 <-
-  with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "cdc"),
-    paste(min(known_start), max(known_end), sep = " - "))
-
-cms10 <-
-  with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "cms"),
-    paste(min(known_start), max(known_end), sep = " - "))
-
-who10 <-
-  with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "who"),
-    paste(min(known_start), max(known_end), sep = " - "))
 ```
 
 The internal ICD database includes ICD-9 diagnostic codes from the Centers
@@ -323,23 +329,33 @@ flagged with Charlson comorbidities via `medicalcoder::comorbidities()`.
 :::
 
 ```{r}
+#| label: medicalcoder-charlson-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-charlson-cumulative
+#| include: false
+```
+```{r}
+#| label: medicalcoder-elixhauser-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-elixhauser-cumulative
+#| include: false
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-cumulative
+#| include: false
+```
+```{r}
 #| label: charlson-summary
 #| echo: false
 #| results: asis
-cc <- summary(objs$medicalcoder_charlson_current)$conditions
-data.table::setDT(cc)
-cc[, condition := NULL]
-cc[, count := qwraps2::frmt(as.integer(count))]
-cc[, percent := qwraps2::frmt(percent)]
-cc[, rgp := data.table::fifelse(grepl(">=", condition_description), "Total Conditions", "Condition")]
-cc[, condition_description := sub(">=", "≥", condition_description)]
-data.table::setnames(cc, old = c("count", "percent"), new = c("Encounters", "Percent"))
-
-gt::gt(
-  data = cc,
-  rowname_col = "condition_description",
-  groupname_col = "rgp"
-)
 ```
 
 Flagging of comorbidities at the encounter-level only assumes all relevant ICD
@@ -348,30 +364,21 @@ rarely the case.
 Naïve accumulation of encounter-level flags is insufficient to accurately capture both the presence and severity of comorbidities.
 
 ```{r}
+#| label: figure2
 #| include: false
-figure2data
-fmtn <- function(x) formatC(x, format = "d", big.mark = ",")
-
-N  <- figure2data[method == "Elixhauser"][1, fmtn(subjects_with_a_cmrb_flag)]
-cs <-
-  figure2data[
-    method == "Elixhauser" & variable == "sp",
-    sprintf("%s (%s%%)", fmtn(subjects), formatC(100 * value, format = "f", digits = 1))
-]
-es <-
-  figure2data[
-    method == "Elixhauser" & variable == "ep",
-    sprintf("%s (%s%%)", fmtn(subjects), formatC(100 * value, format = "f", digits = 1))
-]
+```
+```{r}
+#| label: figure2-pros
+#| include: false
 ```
 Figure 2 shows the impact on risk profiles for subjects and encounters by
 flagging method and algorithm.  For example,
-`r N` subjects with at least two encounters and at least one Elixhauser
+`r figure2pros$N` subjects with at least two encounters and at least one Elixhauser
 comorbidity flagged on encounter 2 via `flag.method = "cumulative"`,
-`r cs[1]` subjects have at least one encounter with a different risk profile
+`r figure2pros$cs[1]` subjects have at least one encounter with a different risk profile
 (different classification of comorbidities and/or count of comorbidities) under
 `flag.method = "cumulative"` compared to `flag.method = "current"`.
-`r cs[2]` subjects had at least one encounter with zero comorbidities per
+`r figure2pros$cs[2]` subjects had at least one encounter with zero comorbidities per
 `flag.method = "current"` and at least one comorbidity with `flag.method =
 'cumulative'`.
 
@@ -414,90 +421,6 @@ non-technology-dependent code.
 #| label: flagging-table
 #| echo: false
 #| results: asis
-s10728333 <-
-  merge(
-    x = objs$medicalcoder_pcccv3.1_current[subject_id == 10728333],
-    y = objs$medicalcoder_pcccv3.1_cumulative[subject_id == 10728333],
-    all = TRUE,
-    by = c("subject_id", "enc_seq"),
-    suffixes = c("_current", "_cumulative")
- )
-DT0 <- s10728333[subject_id == 10728333, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
-DT1 <-
-  DT0[
-    ,
-    .(enc_seq,
-      metabolic__current = data.table::fcase(
-        metabolic_dxpr_only_current == 1, "DxPr",
-        metabolic_tech_only_current == 1, "Tech",
-        metabolic_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      metabolic__cumulative = data.table::fcase(
-        metabolic_dxpr_only_cumulative == 1, "DxPr",
-        metabolic_tech_only_cumulative == 1, "Tech",
-        metabolic_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      misc__current = data.table::fcase(
-        misc_dxpr_only_current == 1, "DxPr",
-        misc_tech_only_current == 1, "Tech",
-        misc_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      misc__cumulative = data.table::fcase(
-        misc_dxpr_only_cumulative == 1, "DxPr",
-        misc_tech_only_cumulative == 1, "Tech",
-        misc_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      respiratory__current = data.table::fcase(
-        respiratory_dxpr_only_current == 1, "DxPr",
-        respiratory_tech_only_current == 1, "Tech",
-        respiratory_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      respiratory__cumulative = data.table::fcase(
-        respiratory_dxpr_only_cumulative == 1, "DxPr",
-        respiratory_tech_only_cumulative == 1, "Tech",
-        respiratory_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      any_tech_dep_current = data.table::fifelse(any_tech_dep_current == 1, "1", ""),
-      any_tech_dep_cumulative = data.table::fifelse(any_tech_dep_cumulative == 1, "1", ""),
-      num_cmrb_current = as.character(num_cmrb_current),
-      num_cmrb_cumulative = as.character(num_cmrb_cumulative)
-    )
-  ]
-
-ftm1 <- "*"
-ftm2 <- "†"
-DT1[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
-DT1[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
-DT1[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
-
-DT1 |>
-  gt::gt(caption = "") |>
-  gt::cols_align(align = "center") |>
-  gt::tab_spanner("Metabolic", columns = c(metabolic__current, metabolic__cumulative)) |>
-  gt::tab_spanner("Miscellaneous", columns = c(misc__current, misc__cumulative)) |>
-  gt::tab_spanner("Respiratory", columns = c(respiratory__current, respiratory__cumulative)) |>
-  gt::tab_spanner("Any Tech", columns = c(any_tech_dep_current, any_tech_dep_cumulative)) |>
-  gt::tab_spanner("Comorbidity Count", columns = c(num_cmrb_current, num_cmrb_cumulative)) |>
-  gt::cols_label(
-    enc_seq = "Encounter",
-    metabolic__current = "Current", metabolic__cumulative = "Cumulative",
-    misc__current = "Current", misc__cumulative = "Cumulative",
-    respiratory__current = "Current", respiratory__cumulative = "Cumulative",
-    any_tech_dep_current = "Current", any_tech_dep_cumulative = "Cumulative",
-    num_cmrb_current = "Current", num_cmrb_cumulative = "Cumulative"
-  ) |>
-  gt::tab_footnote(footnote = "* A technology-dependent code was reported on this encounter.  Since no non-technology-dependent code was reported no comorbidities are flagged.") |>
-  gt::tab_footnote(footnote = "† A technology-dependent code has been carried forward in the record.  Since no non-technology-dependent code was reported on this, or a prior, encounter, no comorbidities are flagged.") |>
-  #gt::opt_table_font(size = 19)
-  #gt::tab_options(table.font.size = gt::px(10))
-  gt::tab_style(
-    style = gt::cell_text(size = "8pt"),
-    locations = gt::cells_body()
-  ) |>
-  gt::tab_style(
-    style = gt::cell_text(size = "8pt", weight = "bold"),
-    locations = gt::cells_column_labels()
-  )
 ```
 
 
@@ -664,6 +587,16 @@ risk profile and for differences in classification and/or additional
 comorbidities, with Elixhauser generally highest, PCCC v3.1 intermediate, and
 Charlson lowest; the other two categories are much smaller.
 
+```{r}
+#| label: mem-total-helper
+```
+```{r}
+#| label: get-cpu-brand
+```
+```{r}
+#| label: sessioninfo-with-memory-cpu
+```
+
 **Figure 3:** The median time (in seconds; bar height), and IQR (error bars),
 required to flag comorbidities in the MIMIC-IV v3.1 dataset
 (`r qwraps2::frmt(nrow(mimicivDT))` rows,
@@ -683,11 +616,6 @@ times were recorded when building the supplement in `r si$platform$version` on
 ```{r}
 #| label: for-figure3-alt-text
 #| include: false
-mdcr_f3_range <- figure3data[Tool == "medicalcoder", floor(range(time / 1e9))]
-cmrb_f3_char_median <- figure3data[Tool == "comorbidity" & Algorithm == "charlson", floor(median(time / 1e9))]
-cmrb_f3_elix_median <- figure3data[Tool == "comorbidity" & Algorithm == "elixhauser", floor(median(time / 1e9))]
-mmic_f3_median <- figure3data[Tool == "mimiciv", floor(median(time / 1e9))]
-pccc_f3_median <- figure3data[Tool == "pccc", floor(median(time / 1e9))]
 ```
 
 **Figure 3 ALT TEXT:** Four-panel grouped bar chart showing median time in

@@ -1,7 +1,9 @@
-benchmarks <- readRDS("benchmarks.rds")
-
-benchmarksDT <- data.table::as.data.table(data.table::copy(benchmarks))
-benchmarksDT[, c("Tool", "Algorithm", "Flag Method") := data.table::tstrsplit(expr, "__")]
+#benchmarks <- readRDS("benchmarks.rds")
+loadNamespace("data.table")
+qwraps2::lazyload_cache_labels(
+  labels = c("benchmarking"),
+  path = "mimiciv-data-analysis_cache/pdf/"
+)
 
 g <-
   ggplot2::ggplot(
@@ -20,7 +22,6 @@ g <-
       name = "Flag Method",
       values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
     ) +
-    #ggplot2::scale_y_log10() +
     ggplot2::labs(x = "Comorbidity Algorithm", y = "Time (seconds)") +
     ggplot2::theme_bw(base_size = 12) +
     ggplot2::theme(
@@ -29,7 +30,6 @@ g <-
       axis.text.x = ggplot2::element_text(angle = 25, hjust = 1)
     )
 
-saveRDS(benchmarksDT, "figure3data.rds")
-ggplot2::ggsave(plot = g, filename = "figure3.svg", width = 6, height = 4)
 ggplot2::ggsave(plot = g, filename = "figure3.pdf", width = 6, height = 4)
+saveRDS(benchmarksDT, "figure3data.rds")
 
