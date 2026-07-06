@@ -558,17 +558,192 @@ specific encounter but are reported on the following encounters. In the
 following we will explore some of the pros and cons of the indefinite
 carry-forward of comorbidities.
 
-To simplify the work we will reapply the Quan 2011 method using `enc_seq`
+To simplify the work we will reapply the comorbidity algorithms using `enc_seq`
 instead of `hadm_id` so that the encounters are considered in chronologic order.
+We present here the code for Charlson, Elixhauser, and PCCC, which will be
+referenced several times within the remainder of this document.
 
 ```{r}
 #| label: medicalcoder-charlson-current
+#| cache: true
 ```
 ```{r}
 #| label: medicalcoder-charlson-cumulative
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-elixhauser-current
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-elixhauser-cumulative
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-pcccv2.0-current
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-pcccv2.0-cumulative
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-current
+#| cache: true
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-cumulative
+#| cache: true
 ```
 
-## Diabetes
+## Severity of Disease
+
+Let's look at the impact of longitudinal flagging vs encounter level flagging of
+Charlson comorbidities.
+
+```{r}
+#| label: build-flagmethod-delta
+#| include: false
+```
+
+@fig-flagmethod-delta-charlson shows the number of encounters flagged with a
+given condition for `flag.method = 'current'` and `flag.method = 'cumulative'`
+for the Charlson condition flagged by `medicalcoder::comorbidities()`.  For most
+conditions the number of encounters flagged is greater when using the cumulative
+flag method compared to the the current flag method.  However, there is a
+notable counter example: dm (diabetes without complications) and dmc (diabetes
+with complications).  _medicalcoder_ will carry forwared the severity of disease
+an report the more severe version after it has been reported.
+
+```{r}
+#| label: define-flagmethod-plot
+#| include: false
+```
+```{r}
+#| label: fig-flagmethod-delta-charlson
+#| fig-scap: Charlson comorbidities by flag.method.
+#| fig-cap: |
+#|   Number of encounters flagged with a Charlson comorbidities based on
+#|   encounter only (`flag.method = "current"`) verses the whole patient history
+#|   (`flag.method = "cumulative"`).
+#| fig-width: 7
+#| fig-height: 7
+#| echo: false
+```
+
+```{r}
+#| label: build-dmseverity
+#| include: false
+```
+```{r}
+#| label: s10009326
+#| include: false
+```
+
+An example of a patient record where on an encounter level flagging approach
+diabetes will be missed entirely and the severity is inaccurate is in
+@tbl-dm-10009326.  Subject 10009326 had `r nrow(s10009326)` encounters.  At
+least one ICD code mapping to uncomplicated diabetes under the Charlson _a la_
+@quan2005 appeared in `r sum(s10009326$dm_current)` encounters, and
+`r sum(s10009326$dmc_current)` encounter for complicated diabetes.  Under an
+encounter-level only flagging of comorbidities, this patient would erroneously
+not have diabetes of any kind on
+`r nrow(s10009326) - sum(s10009326$dm_current) - sum(s10009326$dmc_current)`
+encounters.  Using the longitudinal flagging in `medicalcoder::comorbidities()`
+via `flag.method = 'cumulative'`, we have diabetes flagged on all encounters,
+and the severity correctly marked for encounters later in the patient record.
+
+```{r}
+#| label: tbl-dm-s10009326
+#| tbl-cap: |
+#|   Flagging Diabetes under Charlson comorbidities for MIMIC-IV subject_id
+#|   10009326 using `medicalcoder::comorbidities()` `flag.method = "current"`
+#|   and `flag.method = "cumulative"`.
+#| results: "asis"
+#| echo: false
+```
+
+### Elixhauser
+For Elixhauser, @fig-flagmethod-delta-elixhauser, shows similar behavior for
+diabetes as Charlson.
+```{r}
+#| label: fig-flagmethod-delta-elixhauser
+#| fig-scap: Elixhauser comorbidities by flag.method.
+#| fig-cap: |
+#|    Number of encounters flagged with a Elixhauser comorbidities based on
+#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    (`flag.method = "cumulative"`).
+#| fig-width: 7
+#| fig-height: 7
+#| echo: false
+```
+
+### PCCC
+
+@fig-flagmethod-delta-pcccv2.0 and @fig-flagmethod-delta-pcccv3.1 illustrate
+the impact of the flagging method when identifying PCCC comorbidities under
+PCCC v2 and PCCC v3 respectively.  @fig-flagmethod-delta-pcccv3.1 is of
+particular interest as the implications of technology-dependent codes in PCCC v3
+are handled have considerable impact on the flagged comorbidities.
+
+```{r}
+#| label: fig-flagmethod-delta-pcccv2.0
+#| fig-scap: PCCC v2 comorbidities by flag.method.
+#| fig-cap: |
+#|    Number of encounters flagged with a PCCC v2 comorbidities based on
+#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    (`flag.method = "cumulative"`).
+#| fig-width: 7
+#| fig-height: 7
+#| echo: false
+```
+
+```{r}
+#| label: fig-flagmethod-delta-pcccv3.1
+#| fig-scap: PCCC v3 comorbidities by flag.method.
+#| fig-cap: |
+#|    Number of encounters flagged with a PCCC v3 comorbidities based on
+#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    (`flag.method = "cumulative"`).
+#| fig-width: 7
+#| fig-height: 9
+#| echo: false
+```
+
+```{r}
+#| label: s10728333
+#| include: false
+```
+
+Let's look at the records for `subject_id = 10728333`.  @tbl-s10728333 shows the
+flagging of metabolic, miscellaneous, and respiratory conditions for PCCC v3
+using `flag.method = 'current'` or `flag.method = 'cumulative'`.  For this
+patient, on encounter 1, a technology-dependent ICD code related to a
+respiratory comorbidity was observed in the patient record.  No other ICD codes
+related to a PCCC v3 comorbidity were observed for encounter 1.  As such, no
+comorbidities are flagged for encounter 1 as at least one
+non-technology-dependent ICD code is required for any comorbidity to be flagged.
+Encounter 2 had no PCCC v3 related ICD codes reported.  Encounter 3 had a
+technology-dependent ICD code for a miscellaneous comorbidity reported and
+again, because no non-technology-dependent ICD was reported no comorbidity is
+flagged.  Starting on encounter 4, a non-technology-dependent ICD code for a
+metabolic comorbidity was reported.  Under the `flag.method = 'current'` that is
+the only code that is reported and thus only one comorbidity is reported.  Under
+`flag.method = 'cumulative'` the technology-dependent ICD codes from encounters
+1 and 3 have been carried forward in the record to encounter 4 and are thus
+flagged.  If the end user were to try to build the cumulative comorbidities from
+the results of the `flag.method = 'current'` results, the end user would never
+capture the miscellaneous comorbidity, and would fail to capture the respiratory
+comorbidity until encounter 6, and would incorrectly classify as
+non-technology-dependent until the final encounter.
+
+```{r}
+#| label: tbl-s10728333
+#| echo: false
+#| results: "asis"
+```
+
+## Diabetes - Chronic vs Acute Disease
 
 Non-gestational diabetes is generally considered a chronic condition.  Even when
 well managed, it is still a relevent diagnosis.  The ICD-10 code defining
@@ -690,38 +865,6 @@ faster than all the alternatives.
 For this work we will include several additional calls to
 `medicalcoder::comorbidities()`.
 ```{r}
-#| label: medicalcoder-charlson-current
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-charlson-cumulative
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-elixhauser-current
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-elixhauser-cumulative
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-pcccv2.0-current
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-pcccv2.0-cumulative
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-pcccv3.1-current
-#| cache: true
-```
-```{r}
-#| label: medicalcoder-pcccv3.1-cumulative
-#| cache: true
-```
-```{r}
 #| label: figure2
 #| include: false
 ```
@@ -786,7 +929,7 @@ not be meaningful as it is an encounter level summary.
 #| label: structure-of-summaries
 ```
 
-The data.frames are provided so that end users can easily build their own
+The `data.frame`s are provided so that end users can easily build their own
 summary tables using tools such as _knitr_
 [@r-knitr,@r-knitr-collection,@r-knitr-book] and _kableExtra_
 [@r-kableExtra]

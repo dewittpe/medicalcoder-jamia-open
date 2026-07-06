@@ -17,7 +17,7 @@ csl: jamia.csl
 #| label: setup
 #| include: false
 #| cache: false
-stopifnot(packageVersion("medicalcoder") >= "0.7.0")
+stopifnot(packageVersion("medicalcoder") >= "0.8.1")
 options(qwraps2_markup = "markdown")
 loadNamespace("data.table")
 loadNamespace("medicalcoder")
@@ -26,13 +26,6 @@ qwraps2::lazyload_cache_labels(
   labels = c("benchmarking"),
   path = "mimiciv-data-analysis_cache/pdf/"
 )
-
-#mimicivDT <- readRDS("mimicivDT.rds")
-#data.table::setDT(mimicivDT)
-# objs <- readRDS("objs.rds")
-# si <- readRDS("si.rds")
-# figure2data <- readRDS("figure2data.rds")
-# figure3data <- readRDS("figure3data.rds")
 ```
 ```{r}
 #| label: import-mimiciv-data

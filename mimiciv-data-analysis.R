@@ -846,6 +846,238 @@ medicalcoder_charlson_cumulative <-
     flag.method = "cumulative"
   )
 
+## ---- build-flagmethod-delta ----
+flagmethod_delta <-
+  data.table::rbindlist(
+    list(
+      medicalcoder_charlson_current = medicalcoder_charlson_current,
+      medicalcoder_charlson_cumulative = medicalcoder_charlson_cumulative,
+      medicalcoder_elixhauser_current = medicalcoder_elixhauser_current,
+      medicalcoder_elixhauser_cumulative = medicalcoder_elixhauser_cumulative,
+      medicalcoder_pcccv2.0_current = medicalcoder_pcccv2.0_current,
+      medicalcoder_pcccv2.0_cumulative = medicalcoder_pcccv2.0_cumulative,
+      medicalcoder_pcccv3.1_current = medicalcoder_pcccv3.1_current,
+      medicalcoder_pcccv3.1_cumulative = medicalcoder_pcccv3.1_cumulative
+    ),
+    use.names = TRUE,
+    fill = TRUE,
+    idcol = "obj"
+  )
+
+flagmethod_delta[
+  ,
+  c("algo", "flag.method") := data.table::tstrsplit(obj, "_", keep = 2:3)
+]
+
+flagmethod_delta[, obj := NULL]
+
+flagmethod_delta <-
+  data.table::melt(
+    data = flagmethod_delta,
+    id.vars = c("subject_id", "enc_seq", "algo", "flag.method"),
+    variable.factor = FALSE,
+    variable.name = "condition",
+    na.rm = TRUE
+  )
+
+flagmethod_delta <-
+  flagmethod_delta[
+   , .(N = sum(value), p = mean(value)),
+   by = .(algo, flag.method, condition)
+ ]
+
+flagmethod_delta[,
+  flag.method := factor(flag.method, levels = c("current", "cumulative"))
+]
+
+flagmethod_delta <-
+  flagmethod_delta[
+    !(condition %in% c("readmission_index", "mortality_index",
+        "cci", "num_cmrb", "age_score"))
+  ]
+
+flagmethod_delta[condition == "cmrb_flag"]
+
+## ---- define-flagmethod-plot ----
+flagmethod_plot <- function(data) {
+  ggplot2::ggplot(data = data) +
+    ggplot2::theme_bw() +
+    ggplot2::aes(x = condition, y = N, fill = flag.method) +
+    ggplot2::geom_col(position = ggplot2::position_dodge()) +
+    ggplot2::scale_fill_manual(
+      name = "Flag Method",
+      values = c("current" = "#6F263D", "cumulative" = "#4F8FCB")
+    ) +
+    ggplot2::scale_y_continuous(
+      name = "Encounters",
+      label = scales::label_comma()
+    ) +
+    ggplot2::theme(
+      axis.title.y = ggplot2::element_blank(),
+      legend.position = "bottom",
+    ) +
+    ggplot2::coord_flip()
+}
+
+## ---- fig-flagmethod-delta-charlson ----
+flagmethod_plot(flagmethod_delta[algo == "charlson"])
+
+## ---- fig-flagmethod-delta-elixhauser ----
+flagmethod_plot(flagmethod_delta[algo == "elixhauser"])
+
+## ---- fig-flagmethod-delta-pcccv2.0 ----
+flagmethod_plot(flagmethod_delta[algo == "pcccv2.0"])
+
+## ---- fig-flagmethod-delta-pcccv3.1 ----
+flagmethod_plot(flagmethod_delta[algo == "pcccv3.1"])
+
+## ---- build-dmseverity ----
+dmseverity <-
+  merge(
+    x = medicalcoder_charlson_current,
+    y = medicalcoder_charlson_cumulative,
+    by = c("subject_id", "enc_seq"),
+    suffix = c("_current", "_cumulative")
+  )
+
+## ---- s10009326 ----
+dmseverity[,
+  .(
+    V1 = mean(dm_current + dmc_current),
+    V2 = mean(dm_cumulative + dmc_cumulative),
+    .N
+   ),
+ by = .(subject_id)
+ ][, d := V2 - V1][d > 0 & N > 5]
+
+s10009326 <-
+  dmseverity[
+    subject_id == 10009326,
+    .SD,
+    .SDcols = patterns("enc_seq|^dm")
+  ]
+
+## ---- s19855614 ----
+s19855614 <-
+  merge(
+    x = medicalcoder_pcccv3.1_current[subject_id == 19855614],
+    y = medicalcoder_pcccv3.1_cumulative[subject_id == 19855614],
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_current", "_cumulative")
+ )
+Filter(f = function(x) sum(x) > 0, s19855614)
+# need gi, malignancy, metabolic, neuromusc, respriatory,
+
+## ---- s10728333 ----
+s10728333 <-
+  merge(
+    x = medicalcoder_pcccv3.1_current[subject_id == 10728333],
+    y = medicalcoder_pcccv3.1_cumulative[subject_id == 10728333],
+    all = TRUE,
+    by = c("subject_id", "enc_seq"),
+    suffixes = c("_current", "_cumulative")
+ )
+Filter(f = function(x) sum(x) > 0, s10728333)
+# metabolic, respriatory, any_tech, num_cmrb, misc,
+
+## ---- tbl-s10728333 ----
+# NOTE: not using the quarto yaml for the table crossref so I can use short
+# captions
+DT0 <- s10728333[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
+DT1 <-
+  DT0[
+    ,
+    .(enc_seq,
+      metabolic__current = data.table::fcase(
+        metabolic_dxpr_only_current == 1, "DxPr",
+        metabolic_tech_only_current == 1, "Tech",
+        metabolic_dxpr_and_tech_current == 1, "DxPrTech",
+        default = ""),
+      metabolic__cumulative = data.table::fcase(
+        metabolic_dxpr_only_cumulative == 1, "DxPr",
+        metabolic_tech_only_cumulative == 1, "Tech",
+        metabolic_dxpr_and_tech_cumulative == 1, "DxPrTech",
+        default = ""),
+      misc__current = data.table::fcase(
+        misc_dxpr_only_current == 1, "DxPr",
+        misc_tech_only_current == 1, "Tech",
+        misc_dxpr_and_tech_current == 1, "DxPrTech",
+        default = ""),
+      misc__cumulative = data.table::fcase(
+        misc_dxpr_only_cumulative == 1, "DxPr",
+        misc_tech_only_cumulative == 1, "Tech",
+        misc_dxpr_and_tech_cumulative == 1, "DxPrTech",
+        default = ""),
+      respiratory__current = data.table::fcase(
+        respiratory_dxpr_only_current == 1, "DxPr",
+        respiratory_tech_only_current == 1, "Tech",
+        respiratory_dxpr_and_tech_current == 1, "DxPrTech",
+        default = ""),
+      respiratory__cumulative = data.table::fcase(
+        respiratory_dxpr_only_cumulative == 1, "DxPr",
+        respiratory_tech_only_cumulative == 1, "Tech",
+        respiratory_dxpr_and_tech_cumulative == 1, "DxPrTech",
+        default = ""),
+      any_tech_dep_current = data.table::fifelse(any_tech_dep_current == 1, "1", ""),
+      any_tech_dep_cumulative = data.table::fifelse(any_tech_dep_cumulative == 1, "1", ""),
+      num_cmrb_current = as.character(num_cmrb_current),
+      num_cmrb_cumulative = as.character(num_cmrb_cumulative)
+    )
+  ]
+
+ftm1 <- "*"#kableExtra::footnote_marker_symbol(1, format = "latex")
+ftm2 <- "\\dag"#kableExtra::footnote_marker_symbol(2, format = "latex")
+DT1[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
+DT1[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
+DT1[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
+
+kableExtra::kbl(
+  x = DT1,
+  col.names = c("Encounter", rep(c("Current", "Cumulative"), 5)),
+  format = "latex",
+  booktabs = TRUE,
+  row.names = FALSE,
+  align = rep("c", ncol(DT1)),
+  escape = FALSE,
+  caption.short = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333.",
+  caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to a ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity base on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
+  ) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "scale_down", "HOLD_position")
+) |>
+kableExtra::add_header_above(
+  header = c("", "Metabolic" = 2, "Miscellaneous" = 2, "Respiratory" = 2, "Any Tech" = 2, "Number of Comorbiditys" = 2)
+) |>
+kableExtra::add_footnote(
+  label = c("A technology-dependent code was reported on this encounter.  Since no non-technology-dependent was reported no comorbidities are flagged.",
+            "A technology-dependent code has been carried forward in the record.  Since no non-technology-dependent was reported on this, or a prior, enconter, no comorbidities are flagged."),
+  notation = "symbol",
+  threeparttable = TRUE
+)
+
+## ---- tbl-dm-s10009326 ----
+s10009326[
+  ,
+  lapply(.SD, function(x) data.table::fifelse(x == 1, "X", "")),
+  .SDcols = patterns("^dm"),
+  by = .(enc_seq)
+  ] |>
+kableExtra::kbl(
+  x = _,
+  format = "latex",
+  booktabs = TRUE,
+  align = "ccccc",
+  row.names = FALSE,
+  col.names = c("Encounter", "Complicated", "Uncomplicated", "Complicated", "Uncomplicated")
+  ) |>
+kableExtra::kable_styling(
+  latex_options = c("striped", "scale_down", "HOLD_position")
+) |>
+kableExtra::add_header_above(
+  header = c("", "Current" = 2, "Cumulative" = 2)
+)
+
 ## ---- ICD-10-categories-dm-quan ----
 subset(
   x = medicalcoder::get_charlson_codes(),
@@ -1288,8 +1520,8 @@ figure2pros[["es"]] <-
 ## ---- s10728333 ----
 s10728333 <-
   merge(
-    x = objs$medicalcoder_pcccv3.1_current[subject_id == 10728333],
-    y = objs$medicalcoder_pcccv3.1_cumulative[subject_id == 10728333],
+    x = medicalcoder_pcccv3.1_current[subject_id == 10728333],
+    y = medicalcoder_pcccv3.1_cumulative[subject_id == 10728333],
     all = TRUE,
     by = c("subject_id", "enc_seq"),
     suffixes = c("_current", "_cumulative")
