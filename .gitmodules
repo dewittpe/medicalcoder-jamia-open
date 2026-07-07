@@ -1,0 +1,3 @@
+[submodule "medicalcoder-jamia-open-response-to-reviewers"]
+	path = medicalcoder-jamia-open-response-to-reviewers
+	url = git@github.com:dewittpe/medicalcoder-jamia-open-response-to-reviewers.git
