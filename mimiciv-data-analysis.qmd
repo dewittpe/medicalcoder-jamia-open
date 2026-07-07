@@ -613,6 +613,21 @@ specific ICD codes:
 * [ICD-9 V42.0](https://github.com/CUD2V/pccc/issues/54)
 * [ICD-10 Z94](https://github.com/CUD2V/pccc/issues/55)
 
+## Summary of _medicalcoder_ vs Other Implimentations
+
+Using the MIMIC-IV data set we ....
+
+Table X
+
+ | _medicalcoder_         | Comparator    | Agreement summary                               | Main reason for discordance                | 
+ | :-----                 | :-----        | :-----                                          | :-----                                     | 
+ | `charlson_mimicivcode` | MIMIC-IV Code | Exact match after harmonizing severity handling | Structural output/severity handling        | 
+ | `charlson_quan2011`    | _comorbidity_ | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup | 
+ | `elixhauser_quan2005`  | _comorbidity_ | Exact match for shared flags                    | Extra medicalcoder summary/index fields    | 
+ | `pccc_v2.0`            | _pccc_        | High agreement, with documented differences     | Technology dependence/transplant mapping   | 
+
+
+
 # Longitudinal Flagging
 
 Under the assumption that all relevent ICD codes are (re)reported on each
@@ -708,7 +723,7 @@ an report the more severe version after it has been reported.
 
 An example of a patient record where on an encounter level flagging approach
 diabetes will be missed entirely and the severity is inaccurate is in
-@tbl-dm-10009326.  Subject 10009326 had `r nrow(s10009326)` encounters.  At
+@tbl-dm-s10009326.  Subject 10009326 had `r nrow(s10009326)` encounters.  At
 least one ICD code mapping to uncomplicated diabetes under the Charlson _a la_
 @quan2005 appeared in `r sum(s10009326$dm_current)` encounters, and
 `r sum(s10009326$dmc_current)` encounter for complicated diabetes.  Under an

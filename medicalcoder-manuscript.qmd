@@ -368,16 +368,24 @@ Naïve accumulation of encounter-level flags may fail to preserve condition hist
 #| label: figure2-pros
 #| include: false
 ```
-Figure 2 shows the impact on risk profiles for subjects and encounters by
-flagging method and algorithm.  For example,
-`r figure2pros$N` subjects with at least two encounters and at least one Elixhauser
-comorbidity flagged on encounter 2 via `flag.method = "cumulative"`,
-`r figure2pros$cs[1]` subjects have at least one encounter with a different risk profile
-(different classification of comorbidities and/or count of comorbidities) under
-`flag.method = "cumulative"` compared to `flag.method = "current"`.
-`r figure2pros$cs[2]` subjects had at least one encounter with zero comorbidities per
-`flag.method = "current"` and at least one comorbidity with `flag.method =
-'cumulative'`.
+Figure 2 summarizes how cumulative flagging changes comorbidity profiles
+relative to encounter-level flagging. The plotted measures are descriptive and
+not mutually exclusive: "different risk profile" denotes any difference in
+condition classification or comorbidity count, while the remaining measures
+describe selected components of that difference. Subject-level percentages use
+subjects with at least two encounters and at least one non-initial encounter
+with a cumulative comorbidity flag as the denominator. Encounter-level
+percentages use non-initial encounters with at least one cumulative comorbidity
+flag as the denominator.
+
+For example, `r figure2pros$N` subjects with at least two encounters and at
+least one Elixhauser comorbidity flagged on encounter 2 via `flag.method =
+"cumulative"`, `r figure2pros$cs[1]` subjects have at least one encounter with a
+different risk profile (different classification of comorbidities and/or count
+of comorbidities) under `flag.method = "cumulative"` compared to `flag.method =
+"current"`. `r figure2pros$cs[2]` subjects had at least one encounter with zero
+comorbidities per `flag.method = "current"` and at least one comorbidity with
+`flag.method = 'cumulative'`.
 
 The PCCC v3 and post-2022 AHRQ Elixhauser algorithms are more complex. PCCC
 v3 conditions depend on whether technology-dependent codes co-occur (or
@@ -420,16 +428,27 @@ non-technology-dependent code.
 #| results: asis
 ```
 
-The supplement details comparisons with MIMIC-IV code and the R packages
-_comorbidity_ [@r-comorbidity] and _pccc_ [@dewitt2026pccc]. Charlson flags matched
-MIMIC-IV code, and Elixhauser flags matched _comorbidity_. For Charlson,
-_comorbidity_ missed malignancies related to ICD-10-CM codes C4A.x; for PCCC
-v2, _pccc_ showed several technology-dependent and transplant mapping errors.
+Encounter-level validation showed agreement between _medicalcoder_ and
+comparator implementations when the same published algorithm and valid MIMIC-IV
+ICD-coded inputs were used. Charlson flags matched the MIMIC-IV Code
+implementation after harmonizing output conventions for severity handling, and
+Elixhauser flags matched _comorbidity_ for shared condition indicators. PCCC
+differences were limited to documented technology-dependence and
+transplant-category handling differences described in the supplement.
+Quantitative agreement summaries and discordance explanations are provided in
+Supplementary Table X.
 
-In addition to _medicalcoder_ showing consistent, or better, flagging of
-comorbidities compared to other utilities, _medicalcoder_ does so with less
-computational expense, Figure 3.  The package GitHub repository has details on
-benchmarking by input data class and size.
+Additionally, the comparators all use some form of partial string matching in
+their implementations for mapping ICD codes to conditions.  In contrast,
+_medicalcoder_ uses a set of precomputed valid ICD codes to map between input
+data and conditions using database style joins.  As a result, comparators
+implementations can return false positive flags when an invalid input string such as
+tarts with a valid substring ICD code substring.  For example,
+the ICD-10 code C189 maps to 'any malignancy' under Charlson, _comorbidity_ will
+map C189NOTACODE to the condition bemuse the string starts with C18.
+_medicalcoder_ will not map the invalid string to a condition.   Further, the
+_medicalcoder_ implementation is computationally more efficient, Figure 3,
+requiring less time to compute.
 
 _medicalcoder_ also provides ICD utility functions for data preparation and
 validation. `medicalcoder::get_icd_codes()` exposes the internal ICD database,
@@ -566,10 +585,16 @@ for encounter-level detection, `full.codes = TRUE`, `compact.codes = TRUE`, and
 
 **Figure 2:** Percent of subjects and encounters in the MIMIC-IV dataset with
 different comorbidity profiles under `flag.method = "cumulative"` versus
-`flag.method = "current"`. Panel (A) uses subjects with at least two
-encounters and at least one comorbidity flagged on encounter 2 as the
-denominator. Panel (B) uses non-initial encounters with at least one
-comorbidity flagged under `flag.method = "cumulative"` as the denominator.
+`flag.method = "current"`. The bars are not mutually exclusive.  "Different risk
+profile" is an aggregation measure indicating any difference in the comorbidity
+classification or count between cumulative and current flagging.  The remaining
+bars described selected components of that aggregate including encounters with
+no encounter-level comorbidity but at least one cumulative comorbidity,
+classification/severity differences with the same comorbidity count, and
+differences involving additional comorbidities. Panel (A) uses subjects with at
+least two encounters and at least one comorbidity flagged on encounter 2 as the
+denominator. Panel (B) uses non-initial encounters with at least one comorbidity
+flagged under `flag.method = "cumulative"` as the denominator.
 
 **Figure 2 ALT TEXT:** Two-panel grouped bar chart comparing how cumulative
 longitudinal flagging changes comorbidity results relative to encounter-level
