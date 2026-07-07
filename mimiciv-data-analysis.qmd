@@ -190,8 +190,60 @@ The _medicalcoder_ package provides utilities for investigating ICD codes.
 For the MIMIC-IV data, let's just check if the reported ICD codes are in the
 _medicalcoder_ ICD data.
 
+## Utilities
+
+There are several functions in the _medicalcoder_ package for working with ICD
+codes:
+
+* `get_icd_codes()`: returns a lookup table of ICD codes as a `data.frame`.
+* `lookup_icd_codes()`: returns details on specific ICD codes.
+* `is_icd()`: returns `TRUE` or `FALSE` for a vector of codes while considering
+  ICD version, type, and billable status.
+* `icd_compact_to_full()`: insert a decimal point into a string to be
+  consistent with ICD-9 diagnostic, ICD-9 procedure, or ICD-10 diagnostic
+  codes.  (ICD-10 procedure codes do not have decimal places.)  NOTE: this will
+  not validate the return as a valid ICD code, just format the input string
+  appropriately.
+
+We encourage readers to review the vignette in _medicalcoder_ for details on
+these utilities.
 ```{r}
-#| label: mimicivdata-icd-codes
+#| label: vignette
+#| eval: false
+vignette(topic = "icd", package = "medicalcoder")
+```
+
+## ICD-Codes in MIMIC-IV Data
+
+Let's quickly verify that all the repored ICD codes in the MIMIC-IV data are
+known and ICD-9-CM, ICD-9-PCS, ICD-10-CM, or ICD-10-PCS codes.
+
+```{r}
+#| label: mimicivdata-unique-icd-codes
+```
+The call `medicalcoder::is_icd()` will return `TRUE` or `FALSE` for a vector of
+strings if the input is a known ICD code based on version (`icdv = 9` or `icdv =
+10`), diagnostic (`dx = 1`) or procedure (`dx = 0`) codes, and source.
+```{r}
+#| label: mimicivdata-is-icd-is-cms
+```
+There are some codes which appear to not be valid ICD codes.
+```{r}
+#| label: mimicivdata-n-by-iscms
+```
+Let's investigate these codes.  All of them are header codes, never assignable.
+```{r}
+#| label: mimicivdata-not-iscms
+```
+If `headerok = TRUE` in the call `medicalcoder::is_icd()`, then these header
+codes will be considered valid.
+```{r}
+#| label: mimicivdata-is-icd-is-cms-headers
+```
+Lastly, to get more detail on any of the codes you can use
+`medicalcoder::lookup_icd_codes()` or `medicalcoder::get_icd_codes()`.
+```{r}
+#| label: icd-code-look-up-examples
 ```
 
 # Flagging Encounter Level Comorbidities
@@ -390,6 +442,20 @@ colums unique to the return from `medicalcoder::comorbidities()`:
 * `age_score`: an age score (all `NA`) in this case.
 ```{r}
 #| label: remaining-mdcr_v_cmrb
+```
+
+### Precomputed vs Regular Expressions
+
+The default method in _medicalcoder_ for mapping ICD codes to comorbidities is
+to use a precomputed sets of known ICD codes and use database style joins to and
+lookup tables.   _comorbidity_, and many other utilities, use regular
+expressions or partical string matching to make the maps. This can lead to
+problems.  For example, the strings "C189N" and "C189NOTACODE" are not a valid
+ICD code, and will be flagged as a cancer comorbidity via
+`comorbidity::comorbidity()` but will not be flagged by
+`medicalcoder::comorbidities().`
+```{r}
+#| label: precomputed-v-regex
 ```
 
 ### `medicalcoder::comorbidities()` vs MIMIC-IV Code

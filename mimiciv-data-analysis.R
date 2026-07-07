@@ -229,14 +229,30 @@ stopifnot()
 str(mimicivDT)
 summary(mimicivDT)
 
-## ---- mimicivdata-icd-codes
-unique_icdcodes <- mimicivDT[, unique(.SD), .SDcols = c("icd_code", "icd_version", "dx")]
+## ---- mimicivdata-unique-icd-codes ----
+unique_icdcodes <- mimicivDT[!is.na(icd_code), unique(.SD), .SDcols = c("icd_code", "icd_version", "dx")]
 
-unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 0, src = "cms")]
-unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 1, src = "cms")]
-unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 0, src = "cms")]
-unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 1, src = "cms")]
+## ---- mimicivdata-is-icd-is-cms ----
+unique_icdcodes[icd_version ==  9 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 0, src = "cms")]
+unique_icdcodes[icd_version ==  9 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 1, src = "cms")]
+unique_icdcodes[icd_version == 10 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 0, src = "cms")]
+unique_icdcodes[icd_version == 10 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 1, src = "cms")]
 
+## ---- mimicivdata-n-by-iscms ----
+unique_icdcodes[, .N, keyby = .(iscms)]
+
+## ---- mimicivdata-not-iscms ----
+notcms <-
+  merge(
+    x = subset(medicalcoder::get_icd_codes(), src == "cms"),
+    y = unique_icdcodes[!(iscms)],
+    by.x = c('icdv', 'dx', 'code'),
+    by.y = c('icd_version', 'dx', 'icd_code')
+  )
+head(notcms)
+all(is.na(notcms[["assignable_start"]]))
+
+## ---- mimicivdata-is-icd-is-cms-headers ----
 unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 0, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 0, src = "cms", headerok = TRUE)]
 unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 1, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 1, src = "cms", headerok = TRUE)]
 unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 0, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 0, src = "cms", headerok = TRUE)]
@@ -244,8 +260,10 @@ unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 1, iscmshdrok := me
 
 unique_icdcodes[, .N, keyby = .(iscms, iscmshdrok)]
 
-subset(medicalcoder::get_icd_codes(with.description = TRUE), startsWith(code, "S73109"))
+## ---- icd-code-look-up-examples ----
+medicalcoder::lookup_icd_codes(c("Z31", "S73109"))
 subset(medicalcoder::get_icd_codes(with.description = TRUE), code == "Z31")
+subset(medicalcoder::get_icd_codes(with.description = TRUE), startsWith(code, "S73109"))
 
 ## ---- charlson-variants ----
 grep(
@@ -606,6 +624,33 @@ stopifnot(
 
 ## ---- remaining-mdcr_v_cmrb ----
 str(mdcr_v_cmrb)
+
+## ---- precomputed-v-regex ----
+DF <-
+  data.frame(
+    icd_codes = c("C1", "C18", "C189", "C189N", "C189NOTACODE"),
+    codeids   = c("C1", "C18", "C189", "C189N", "C189NOTACODE"),
+    stringsAsFactors = FALSE
+  )
+canc <- 
+  comorbidity::comorbidity(
+    x = DF,
+    id = "codeids",
+    code = "icd_codes",
+    map = "charlson_icd10_quan",
+    assign0 = TRUE
+  )[, c("codeids", "canc")]
+mal <-
+  medicalcoder::comorbidities(
+    data = DF,
+    id.var = "codeids",
+    icd.codes = "icd_codes",
+    method = "charlson_quan2005",
+    poa = 1,
+    primarydx = 0
+    )[, c("codeids", "mal")]
+
+merge(x = canc, mal, by = c("codeids"))
 
 ## ---- medicalcoder-vs-mimiciv-code-nrows ----
 nrow(medicalcoder_charlson_mimiciv)
