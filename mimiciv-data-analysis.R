@@ -846,6 +846,86 @@ medicalcoder_charlson_cumulative <-
     flag.method = "cumulative"
   )
 
+## ---- medicalcoder-elixhauser-current ----
+medicalcoder_elixhauser_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    primarydx   = 0L,
+    method      = "elixhauser_quan2005",
+    flag.method = "current"
+  )
+
+## ---- medicalcoder-elixhauser-cumulative ----
+medicalcoder_elixhauser_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    primarydx   = 0L,
+    method      = "elixhauser_quan2005",
+    flag.method = "cumulative"
+  )
+
+## ---- medicalcoder-pcccv2.0-current ----
+medicalcoder_pcccv2.0_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v2.0",
+    flag.method = "current"
+  )
+
+## ---- medicalcoder-pcccv2.0-cumulative ----
+medicalcoder_pcccv2.0_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v2.0",
+    flag.method = "cumulative"
+  )
+
+## ---- medicalcoder-pcccv3.1-current ----
+medicalcoder_pcccv3.1_current <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v3.1",
+    flag.method = "current"
+  )
+
+## ---- medicalcoder-pcccv3.1-cumulative ----
+medicalcoder_pcccv3.1_cumulative <-
+  medicalcoder::comorbidities(
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
+    id.vars     = c("subject_id", "enc_seq"),
+    icdv.var    = "icd_version",
+    dx.var      = "dx",
+    poa         = 1L,
+    method      = "pccc_v3.1",
+    flag.method = "cumulative"
+  )
+
 ## ---- build-flagmethod-delta ----
 flagmethod_delta <-
   data.table::rbindlist(
@@ -1117,6 +1197,18 @@ dms[, cumulative := (dm_cumulative + dmc_cumulative)]
 dms[, total_encs := max(enc_seq), by = .(subject_id)]
 dms
 
+## ---- Type-1-DM ----
+type1subjects <-
+  mimicivDT[subject_id %in% sids & startsWith(icd_code, "E10") & icd_version == 10L, subject_id]
+
+subset(
+  x      = medicalcoder::get_icd_codes(with.description = TRUE),
+  subset = full_code == "E10.65" & src == "cms"
+)
+# Subject  10023239
+dms[subject_id %in% type1subjects][cumulative_between_current_flags == 1]
+dms[subject_id == 10252385]
+
 ## ---- cumulative-flags-between-and-after-current-flag ----
 dms[, current_flags_before := as.integer((cumsum(current) - current) > 0), by = .(subject_id)]
 dms[, current_flags_after  := as.integer(rev(cumsum(rev(current)) - current) > 0), by = .(subject_id)]
@@ -1288,85 +1380,6 @@ merge(
   .SDcols = patterns("^(subject_id|enc_seq|LIVER_MLD_c)")
 ]
 
-## ---- medicalcoder-elixhauser-current ----
-medicalcoder_elixhauser_current <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    primarydx   = 0L,
-    method      = "elixhauser_quan2005",
-    flag.method = "current"
-  )
-
-## ---- medicalcoder-elixhauser-cumulative ----
-medicalcoder_elixhauser_cumulative <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    primarydx   = 0L,
-    method      = "elixhauser_quan2005",
-    flag.method = "cumulative"
-  )
-
-## ---- medicalcoder-pcccv2.0-current ----
-medicalcoder_pcccv2.0_current <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    method      = "pccc_v2.0",
-    flag.method = "current"
-  )
-
-## ---- medicalcoder-pcccv2.0-cumulative ----
-medicalcoder_pcccv2.0_cumulative <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    method      = "pccc_v2.0",
-    flag.method = "cumulative"
-  )
-
-## ---- medicalcoder-pcccv3.1-current ----
-medicalcoder_pcccv3.1_current <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    method      = "pccc_v3.1",
-    flag.method = "current"
-  )
-
-## ---- medicalcoder-pcccv3.1-cumulative ----
-medicalcoder_pcccv3.1_cumulative <-
-  medicalcoder::comorbidities(
-    data        = mimicivDT,
-    icd.codes   = "icd_code",
-    id.vars     = c("subject_id", "enc_seq"),
-    icdv.var    = "icd_version",
-    dx.var      = "dx",
-    poa         = 1L,
-    method      = "pccc_v3.1",
-    flag.method = "cumulative"
-  )
 
 ## ---- figure2 ----
 flgmthddeltas <- function(current, cumulative) {
