@@ -13,7 +13,7 @@ all: $(SUPPLEMENTS) $(FIGURES) $(MANUSCRIPT)
 medicalcoder-manuscript.docx: medicalcoder-manuscript.qmd template.docx references.bib $(SUPPLEMENTS) $(FIGURES)
 	$(QUARTO) render $<
 
-mimiciv-data-analysis.pdf figure2.pdf figure3.pdf %: mimiciv-data-analysis.qmd mimiciv-data-analysis.R references.bib
+mimiciv-data-analysis.pdf figure2.pdf figure3.pdf &: mimiciv-data-analysis.qmd mimiciv-data-analysis.R references.bib
 	$(QUARTO) render $<
 
 figure1.pdf: figure1.qmd
