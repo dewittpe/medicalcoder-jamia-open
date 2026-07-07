@@ -109,9 +109,9 @@ encounter-level and cumulative longitudinal flagging.
 **Results:**
 The _medicalcoder_ package requires only R ≥ 3.5.0; no additional packages,
 internet access, or external data. Outputs are consistent with published
-reference implementations. Longitudinal flagging captures comorbidities missed
-by encounter-level aggregation while accounting for present-on-admission or
-technology-dependent logic.
+reference implementations. Longitudinal flagging identifies additional
+comorbidity flags under a carry-forward assumption while accounting for
+present-on-admission or technology-dependent logic.
 
 **Conclusions:**
 _medicalcoder_ provides a unified, reproducible framework for ICD-based
@@ -142,8 +142,8 @@ conditions that appear earlier in their history.
 
 _medicalcoder_ is fast, works with base R, has extensive automated tests, and
 has been validated against reference implementations. It helps researchers apply
-comorbidity algorithms more accurately and consistently, improving the quality
-and reproducibility of studies using electronic health records or administrative
+comorbidity algorithms with consistency, improving the quality and
+reproducibility of studies using electronic health records or administrative
 data.
 
 :::
@@ -154,7 +154,7 @@ data.
 
 Accurate identification of clinical conditions in large healthcare datasets
 depends on International Classification of Diseases (ICD) codes
-[@quan2005;@quan2011;@feinstein2024pediatric;@feudtner2014pediatric;@ahrq2025;@glasheen2019].
+[@quan2005;@quan2011;@feinstein2024pediatric;@feudtner2014pediatric;@ahrq2025;@glasheen2019;@ludvigsson2021adaptation;@ludvigsson2023adaptation].
 Comorbidity algorithms built on these codes support risk adjustment, cohort
 characterization, and reproducible studies of patient populations
 [@quan2005;@yurkovich2015systematic;@guo2022evaluation;@li2008risk].
@@ -208,25 +208,29 @@ R serialization formats. Several packages are suggested for enhanced performance
 (data.table [@r-data.table] and dplyr [@r-dplyr]) and for testing and
 documentation, but are not required for installation or use.
 
-
 ```{r}
 #| label: icd-src-years
 #| include: false
 ```
 
-The internal ICD database includes ICD-9 diagnostic codes from the Centers
-for Disease Control and Prevention (CDC; fiscal years `r cdc9`) and ICD-9-CM and
-ICD-9-PCS codes from the Centers for Medicare and Medicaid Services (CMS; fiscal
-years `r cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`)
-and the World Health Organization (WHO; calendar years `r who10`) are included,
-along with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`). The
+As of _medicalcoder_ version `r packageVersion("medicalcoder")`, the internal
+ICD database includes ICD-9 diagnostic codes from the Centers for Disease
+Control and Prevention (CDC; fiscal years `r cdc9`) and ICD-9-CM and ICD-9-PCS
+codes from the Centers for Medicare and Medicaid Services (CMS; fiscal years `r
+cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`) and the
+World Health Organization (WHO; calendar years `r who10`) are included, along
+with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`)
+(TODO: ADD SE AND AM NOTES). The
 internal database will be extended as additional code sets are published.
 
-Charlson variants include Deyo (as denoted in @quan2005), Quan (2005; 2011), and
-CDMF (2019). Elixhauser variants include the original Elixhauser (1988), AHRQ
-Web (ICD-9 based as denoted in @quan2005), Quan (2005), and AHRQ ICD-10
-fiscal-year implementations (2022–2026). PCCC variants include versions 2.0,
-2.1, 3.0, and 3.1. Additional variants will be added as they are released.
+Charlson variants include Deyo (as denoted in [@quan2005]), Quan (2005; 2011),
+CDMF (2019) [@glasheen2019], Ludvigsson (2021)
+[@ludvigsson2021adaptation;@ludvigsson2023adaptation], Sundararajan (2004)
+[@sundararajan2004], and Beyrer (2021) [@beyrer2021validation]. Elixhauser
+variants include the original Elixhauser (1988), AHRQ Web (ICD-9 based as
+denoted in @quan2005), Quan (2005), and AHRQ ICD-10 fiscal-year implementations
+(2022–2026). PCCC variants include versions 2.0, 2.1, 3.0, and 3.1. Additional
+variants will be added as they are released.
 
 A comprehensive test suite runs as a GitHub Action and on the Comprehensive R
 Archive Network (CRAN). An additional test suite runs on demand for all released
@@ -354,7 +358,7 @@ flagged with Charlson comorbidities via `medicalcoder::comorbidities()`.
 Flagging of comorbidities at the encounter-level only assumes all relevant ICD
 codes are reported on all encounters and correctly marked as POA.  This is
 rarely the case.
-Naïve accumulation of encounter-level flags is insufficient to accurately capture both the presence and severity of comorbidities.
+Naïve accumulation of encounter-level flags may fail to preserve condition history or severity.
 
 ```{r}
 #| label: figure2
@@ -462,8 +466,8 @@ current record. As demonstrated in Table 2, this assumption can lead to
 systematic under-ascertainment of comorbidities, particularly for conditions
 governed by POA rules or technology-dependent classification criteria. By
 explicitly tracking diagnostic history across encounters, _medicalcoder_ enables
-comorbidity flagging that more closely reflects the longitudinal nature of
-clinical disease.
+comorbidity flagging that supports analyses incorporating prior observed
+diagnoses under an explicit carry-forward assumption.
 
 The unified interface provided by _medicalcoder_ further reduces analytic
 complexity. Mixed ICD-9 and ICD-10 datasets, full and compact codes, diagnostic
