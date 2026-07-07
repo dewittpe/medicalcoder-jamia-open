@@ -96,7 +96,7 @@ Word count: 148 / 150
 Comorbidity algorithms derived from ICD codes are central to risk adjustment and
 cohort characterization. However, existing software inconsistently handles mixed
 ICD-9/10 data, and operates at the encounter level, failing to reflect the
-longitudinal nature of disease. We developed medicalcoder to address these
+longitudinal nature of disease. We developed _medicalcoder_ to address these
 limitations.
 
 **Materials and Methods:**
