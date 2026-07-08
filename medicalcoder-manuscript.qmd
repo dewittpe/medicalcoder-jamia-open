@@ -47,6 +47,30 @@ qwraps2::lazyload_cache_labels(
 #| label: build-enc-seq
 #| include: false
 ```
+```{r}
+#| label: medicalcoder-charlson-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-charlson-cumulative
+#| include: false
+```
+```{r}
+#| label: medicalcoder-elixhauser-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-elixhauser-cumulative
+#| include: false
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-current
+#| include: false
+```
+```{r}
+#| label: medicalcoder-pcccv3.1-cumulative
+#| include: false
+```
 
 
 **Authors**: Peter E. DeWitt^1^, PhD; Seth Russell^1^, MS; James A. Feinstein, MD, MPH^2,3,4^; Margaret N. Rebull^1^, MA; Tellen D. Bennett^1,5^, MD, MS
@@ -220,7 +244,7 @@ codes from the Centers for Medicare and Medicaid Services (CMS; fiscal years `r
 cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`) and the
 World Health Organization (WHO; calendar years `r who10`) are included, along
 with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`)
-(TODO: ADD SE AND AM NOTES). The
+**(TODO: ADD SE AND AM NOTES)**. The
 internal database will be extended as additional code sets are published.
 
 Charlson variants include Deyo (as denoted in [@quan2005]), Quan (2005; 2011),
@@ -231,6 +255,29 @@ variants include the original Elixhauser (1988), AHRQ Web (ICD-9 based as
 denoted in @quan2005), Quan (2005), and AHRQ ICD-10 fiscal-year implementations
 (2022–2026). PCCC variants include versions 2.0, 2.1, 3.0, and 3.1. Additional
 variants will be added as they are released.
+
+_medicalcoder_ maps ICD codes to comorbidity conditions using method-specific
+lookup tables derived from its internal ICD database. These lookup tables are
+separate from the broader ICD reference database: selecting a comorbidity method
+restricts matching to the ICD versions, diagnosis or procedure code types, and
+condition mappings defined for that algorithm. Unlike implementations that rely
+primarily on partial string matching or regular
+expressions[@johnson2022mimiccode;@r-comorbidity;@dewitt2026pccc],
+_medicalcoder_ maps input codes to known ICD codes by database-style joins.
+
+Each lookup table records ICD version (`icdv`; 9 or 10), code type (`dx`; 1 for
+diagnosis and 0 for procedure), full ICD code form (`full_code`; e.g., C18.9),
+compact ICD code form (`code`; e.g., C189), and the corresponding comorbidity
+condition. Depending on user-supplied metadata, matching can use dataset-level
+or row-level ICD version and diagnosis/procedure indicators, allowing ICD-9 and
+ICD-10 codes, and diagnosis and procedure codes, to be evaluated within the same
+dataset or encounter. Matches are collapsed to unique encounter-condition
+combinations before binary indicators are calculated, so repeated codes or
+multiple codes mapping to the same condition do not inflate condition counts.
+
+Because code text alone cannot reliably distinguish jurisdictional variants such
+as WHO ICD-10 and ICD-10-CM, users must select a method appropriate to their
+source coding system and provide accurate code-system metadata.
 
 A comprehensive test suite runs as a GitHub Action and on the Comprehensive R
 Archive Network (CRAN). An additional test suite runs on demand for all released
@@ -258,7 +305,10 @@ We use the MIMIC-IV v3.1 Data
 [@PhysioNet-mimiciv-3.1;@johnson2023mimic;@PhysioNet2000] as the foundation for
 the following examples and the supplement. The MIMIC-IV v3.1 dataset is a large,
 publicly available clinical database used for method development, validation,
-and reproducible research in clinical informatics and outcomes research.
+and reproducible research in clinical informatics and outcomes research.  We use
+the MIMIC-IV in this work to illustrate algorithmic implementations and not make
+clinical inference.  This is a critical caveat as we apply pedicatric specific
+methods to the adult data only MIMIC-IV data.
 
 We compare the results of the comorbidity flagging between _medicalcoder_ and
 three alternatives, the MIMIC-IV Code released by the MIT Laboratory for
@@ -326,40 +376,14 @@ flagged with Charlson comorbidities via `medicalcoder::comorbidities()`.
 :::
 
 ```{r}
-#| label: medicalcoder-charlson-current
-#| include: false
-```
-```{r}
-#| label: medicalcoder-charlson-cumulative
-#| include: false
-```
-```{r}
-#| label: medicalcoder-elixhauser-current
-#| include: false
-```
-```{r}
-#| label: medicalcoder-elixhauser-cumulative
-#| include: false
-```
-```{r}
-#| label: medicalcoder-pcccv3.1-current
-#| include: false
-```
-```{r}
-#| label: medicalcoder-pcccv3.1-cumulative
-#| include: false
-```
-```{r}
 #| label: charlson-summary
 #| echo: false
 #| results: asis
 ```
-
 Flagging of comorbidities at the encounter-level only assumes all relevant ICD
 codes are reported on all encounters and correctly marked as POA.  This is
-rarely the case.
-Naïve accumulation of encounter-level flags may fail to preserve condition history or severity.
-
+rarely the case. Naïve accumulation of encounter-level flags may fail to
+preserve condition history or severity.
 ```{r}
 #| label: figure2
 #| include: false
@@ -442,13 +466,13 @@ Additionally, the comparators all use some form of partial string matching in
 their implementations for mapping ICD codes to conditions.  In contrast,
 _medicalcoder_ uses a set of precomputed valid ICD codes to map between input
 data and conditions using database style joins.  As a result, comparators
-implementations can return false positive flags when an invalid input string such as
-tarts with a valid substring ICD code substring.  For example,
-the ICD-10 code C189 maps to 'any malignancy' under Charlson, _comorbidity_ will
-map C189NOTACODE to the condition bemuse the string starts with C18.
-_medicalcoder_ will not map the invalid string to a condition.   Further, the
-_medicalcoder_ implementation is computationally more efficient, Figure 3,
-requiring less time to compute.
+implementations can return false positive flags when an invalid input string
+such as tarts with a valid substring ICD code substring.  For example, the
+ICD-10 code C189 maps to 'any malignancy' under Charlson, _comorbidity_ will map
+C189NOTACODE to the condition bemuse the string starts with C18. _medicalcoder_
+will not map the invalid string to a condition.   Further, the _medicalcoder_
+implementation is computationally more efficient, Figure 3, requiring less time
+to compute.
 
 _medicalcoder_ also provides ICD utility functions for data preparation and
 validation. `medicalcoder::get_icd_codes()` exposes the internal ICD database,
@@ -487,6 +511,35 @@ governed by POA rules or technology-dependent classification criteria. By
 explicitly tracking diagnostic history across encounters, _medicalcoder_ enables
 comorbidity flagging that supports analyses incorporating prior observed
 diagnoses under an explicit carry-forward assumption.
+
+The cumulative flags do require some careful consideration and interpretations.
+For a chronic disease, such as non-gestational diabetes, indefinite carry-forward of the
+conditions seems reasonable.  The ICD-10 categories of E08, E09, E10, E11, E12
+as listed in @quan2005, are all for chronic, or at least persistent, diabetes
+and it would be reasonable to carry-forward the flag for uncomplicated diabetes.
+But, if the AHRQ ICD-10 codes for fiscal year 2022 or beyond are used, the
+a similar set of ICD-10 codes map to uncomplicated diabetes, but so do codes
+under the ICD-10 O24 category for gestational diabetes, and acute condition.
+Since _medicalcoder_ carries forward the conditions and not the individual ICD
+codes it is not possible from the output to discern if the uncomplicated
+diabetes being carry forward in time is due to gestational or non-gestational
+diabetes.
+Thus, the `flag.method = 'cumulative'` may be a reasonable utility for `method =
+'charlson_quan2005'` and `method = 'elixhauser_quan2005'` but not for `method =
+'elixhauser_ahrq2022'`.
+
+Another example for when carry forward can have some utility, but with caveats,
+is a malignant tumor.  Say a patient has C18.2 "malignant neoplasm of the colon"
+and later, on an enounter without the C18.2 code Z85.030 "personal history of
+malignant carcinoid tumor of large intestine."   For this subject, the
+indefinite carry forward flag for a malignancy would be a "current or history of
+malignancy" flag instead of a "current malignancy" flag that the encounter-level
+flag alone provides.  The notable caveat here is that the Z85.030 is not part of
+any of the established comorbidity methods and the "current or history of
+malignancy" would have false negatives for encounters with Z85.030 preceding
+encounters with relevent ICD codes for a present malignancy.   Thus, the
+longitudinal flags for malignancy should be considered "current, or history of,
+observed disease."
 
 The unified interface provided by _medicalcoder_ further reduces analytic
 complexity. Mixed ICD-9 and ICD-10 datasets, full and compact codes, diagnostic
@@ -537,8 +590,8 @@ https://physionet.org/content/mimiciv/3.1/.
 
 This manuscript was written using Quarto version
 `r system("quarto --version", intern = TRUE)`
-(https://quarto.org/) and `r R.version.string`. All R code, materials,
-and dependencies can be found at
+(https://quarto.org/) and `r R.version.string`.
+All R code, materials, and dependencies can be found at
 https://github.com/dewittpe/medicalcoder-jamia-open/.
 
 [**Contributorship Statement:**]{.underline} PED designed and developed the
