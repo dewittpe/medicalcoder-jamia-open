@@ -625,7 +625,7 @@ stopifnot(
 ## ---- remaining-mdcr_v_cmrb ----
 str(mdcr_v_cmrb)
 
-## ---- precomputed-v-regex ----
+## ---- precomputed-v-regex-canc ----
 DF <-
   data.frame(
     icd_codes = c("C1", "C18", "C189", "C189N", "C189NOTACODE"),
@@ -651,6 +651,79 @@ mal <-
     )[, c("codeids", "mal")]
 
 merge(x = canc, mal, by = c("codeids"))
+
+## ---- precomputed-v-regex-canc-part2 ----
+mal2 <-
+  medicalcoder::comorbidities(
+    data = DF,
+    id.var = "codeids",
+    icd.codes = "icd_codes",
+    method = "charlson_quan2005",
+    poa = 1,
+    primarydx = 0,
+    mapping = "regex"
+    )[, c("codeids", "mal")]
+
+merge(
+  x = merge(x = canc, mal, by = c("codeids")),
+  y = mal2,
+  by = c("codeids"),
+  suffixes = c("_precomputed", "_by_regex")
+)
+
+## ---- precomputed-v-regex-e117 ----
+subset(
+  x = medicalcoder::get_icd_codes(with.description = TRUE),
+  subset = startsWith(code, "E117"),
+  select = c("icdv", "dx", "full_code", "code", "src", "desc")
+)
+
+subset(
+  x = medicalcoder::get_charlson_codes(),
+  subset = startsWith(code, "E117") & charlson_quan2005 == 1L,
+  select = c("icdv", "dx", "full_code", "code", "condition")
+)
+
+subset(
+  x = medicalcoder::get_elixhauser_codes(),
+  subset = startsWith(code, "E117") & elixhauser_quan2005 == 1L,
+  select = c("icdv", "dx", "full_code", "code", "condition")
+)
+
+## ---- precomputed-v-regex-false-negative ----
+# data from https://gesund.bund.de/en/icd-code-suche/e11-7
+GMdata <- data.table::fread(text ="
+CodeID;ICD-Code;Description
+ICD-10-GM E11.72;E11.72;Type 2 diabetes mellitus With multiple complications With other multiple complications, controlled
+ICD-10-GM E11.73;E11.73;Type 2 diabetes mellitus With multiple complications With other multiple complications, uncontrolled
+ICD-10-GM E11.74;E11.74;Type 2 diabetes mellitus With multiple complications With diabetic foot syndrome, controlled  
+ICD-10-GM E11.75;E11.75;Type 2 diabetes mellitus With multiple complications With diabetic foot syndrome, uncontrolled")
+
+common_args <- list( data = GMdata, id.vars = "CodeID", icd.codes = "ICD-Code", dx = 1, icdv = 10, poa = 1, primarydx = 0)
+
+do.call(
+  what = medicalcoder::comorbidities,
+  args = c(common_args, list(method = "charlson_quan2005"))
+)[, c("CodeID", "dm", "dmc")]
+
+do.call(
+  what = medicalcoder::comorbidities,
+  args = c(common_args, list(method = "elixhauser_quan2005"))
+)[, c("CodeID", "DM", "DMCX")]
+
+## ---- precomputed-v-regex-with-regex ----
+do.call(
+  what = medicalcoder::comorbidities,
+  args = c(common_args, list(method = "charlson_quan2005", mapping = "regex"))
+)[, c("CodeID", "dm", "dmc")]
+
+do.call(
+  what = medicalcoder::comorbidities,
+  args = c(common_args, list(method = "elixhauser_quan2005", mapping = "regex"))
+)[, c("CodeID", "DM", "DMCX")]
+
+## ---- precomputed-v-regex-patterns ----
+str(medicalcoder:::..mdcr_internal_charlson_regex..)
 
 ## ---- medicalcoder-vs-mimiciv-code-nrows ----
 nrow(medicalcoder_charlson_mimiciv)
