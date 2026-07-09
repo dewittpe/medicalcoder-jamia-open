@@ -159,7 +159,7 @@ We put all the parts together into one data.frame (data.table)
 We need an encounter sequence variable, the `hadm_id` are not sequential.
 
 NOTE: `admittime` can be used in the calls to
-`medicalcoder::comorbidities()` but it there is additional overhead and
+`medicalcoder::comorbidities()`, but there is additional overhead and
 computational expense when sorting and joining by POSIXct variable.  The
 `enc_seq` achieves the same utility with lower computational overhead.
 
@@ -215,7 +215,7 @@ vignette(topic = "icd", package = "medicalcoder")
 
 ## ICD-Codes in MIMIC-IV Data
 
-Let's quickly verify that all the repored ICD codes in the MIMIC-IV data are
+Let's quickly verify that all the reported ICD codes in the MIMIC-IV data are
 known and ICD-9-CM, ICD-9-PCS, ICD-10-CM, or ICD-10-PCS codes.
 
 ```{r}
@@ -279,7 +279,7 @@ The SQL code for applying Charlson comorbidities to the MIMIC-IV data provided
 by [MIT-LCP](https://github.com/MIT-LCP/mimic-code) has a slightly different set
 of ICD-10 codes mapping to conditions.  Quan et al. (2005, 2011) is based on
 ICD-10 codes, not ICD-10-CM.  The MIMIC-IV SQL code includes the C4A category
-which is a ICD-10-CM specific category (see [this github
+which is an ICD-10-CM specific category (see [this github
 issue](https://github.com/MIT-LCP/mimic-code/issues/2017)).  To be consistent
 with the expected set of ICD codes identified in the Quan papers and the
 MIMIC-IV SQL code, _medicalcoder_ provides distinct methods.
@@ -436,7 +436,7 @@ columns which is numberic.
 #| include: false
 ```
 The only columns remaining in the `mdcr_v_cmrb` object are id columns and three
-colums unique to the return from `medicalcoder::comorbidities()`:
+columns unique to the return from `medicalcoder::comorbidities()`:
 * `num_cmrb`: the number of flagged comorbidities,
 * `cmrb_flag`: a comorbidity flag (at least one comorbidity), and
 * `age_score`: an age score (all `NA`) in this case.
@@ -455,8 +455,8 @@ different results between `medicalcoder::comorbidities()` and
 ```{r}
 #| label: medicalcoder-vs-mimiciv-code-nrows
 ```
-Thes records with no comorbidities are not returned by the MIMIC-IV
-Code. More percisely, all subject/hadm_id pairs missing from the MIMIC-IV Code
+These records with no comorbidities are not returned by the MIMIC-IV
+Code. More precisely, all subject/hadm_id pairs missing from the MIMIC-IV Code
 have a missing `hadm_id`.
 ```{r}
 #| label: no-comorb-no-row-in-mimic-code
@@ -473,12 +473,12 @@ less severe and more severe version of a condition the MIMIC-IV code reports the
 flag for both whereas `medicalcoder::comorbidities()` only returns the flag for
 the more severe case.   We set the less severe case for the MIMIC-IV code
 results to zero when the more severe case is present before comparing all the
-restuls.
+results.
 
 ```{r}
 #| label: set-zeros-by-severity
 ```
-Now that the flags have been adjusted, the relevent columns to compare between
+Now that the flags have been adjusted, the relevant columns to compare between
 `medicalcoder::comorbidities()` and the MIMIC-IV Code are:
 ```{r}
 #| label: mdcr-v-mimic-column-mapping
@@ -532,7 +532,7 @@ If the columns are identical, we remove them from the `mdcr_v_cmrb_elix` object.
 #| include: false
 ```
 The only columns remaining in the `mdcr_v_cmrb_elix` object are id columns and
-colums unique to the return from `medicalcoder::comorbidities()`:
+columns unique to the return from `medicalcoder::comorbidities()`:
 * `num_cmrb`: the number of flagged comorbidities,
 * `cmrb_flag`: a comorbidity flag (at least one comorbidity),
 * `HTN_C`: any hypertension,
@@ -545,7 +545,7 @@ colums unique to the return from `medicalcoder::comorbidities()`:
 
 ### `medicalcoder::comorbidities()` vs `pccc:::ccc()`
 As we have seen in other cases, the absence of ICD codes for a `hadm_id` results
-in the omision of the record from the return from `pccc::ccc()`.
+in the omission of the record from the return from `pccc::ccc()`.
 ```{r}
 #| label: nrow-medicalcoder-vs-pccc
 ```
@@ -575,10 +575,10 @@ difference between _medicalcoder_ and _pccc_.  _medicalcoder_ uses database
 style joins to map precomputed ICD-codes to conditions.  This allows for a
 simple extension of mapping ICD-codes to both the primary condition and
 subcondition as the latter require only an additional column in a lookup table.
-The _pccc_ uses partical string matching to map ICD codes to condtions for
+The _pccc_ uses partial string matching to map ICD codes to conditions for
 each of the primary conditions and only the two subconditions of technology
 dependence and transplant.  When building _medicalcoder_, the lookup table with
-condition and subconditons was extended to match the publication documentation.
+condition and subconditions was extended to match the publication documentation.
 
 ```{r}
 #| label: any-tech-dep-and-transplant
@@ -599,18 +599,20 @@ specific ICD codes:
 * [ICD-9 V42.0](https://github.com/CUD2V/pccc/issues/54)
 * [ICD-10 Z94](https://github.com/CUD2V/pccc/issues/55)
 
-## Summary of _medicalcoder_ vs Other Implimentations
+## Summary of _medicalcoder_ vs Other Implementations
 
-Using the MIMIC-IV data set we ....
+Using the MIMIC-IV data set, we compared encounter-level _medicalcoder_ results
+with comparator implementations for shared algorithms and compatible inputs.
+The comparison focuses on whether outputs agree after harmonizing structural
+differences in returned objects and severity conventions.
 
-Table X
-
- | _medicalcoder_         | Comparator    | Agreement summary                               | Main reason for discordance                |
- | :-----                 | :-----        | :-----                                          | :-----                                     |
- | `charlson_mimicivcode` | MIMIC-IV Code | Exact match after harmonizing severity handling | Structural output/severity handling        |
- | `charlson_quan2011`    | _comorbidity_ | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
- | `elixhauser_quan2005`  | _comorbidity_ | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
- | `pccc_v2.0`            | _pccc_        | High agreement, with documented differences     | Technology dependence/transplant mapping   |
+| _medicalcoder_ method   | Comparator    | Agreement summary                               | Main reason for discordance                |
+|:------------------------|:--------------|:------------------------------------------------|:-------------------------------------------|
+| `charlson_mimicivcode`  | MIMIC-IV Code | Exact match after harmonizing severity handling | Structural output/severity handling        |
+| `charlson_quan2011`     | _comorbidity_ | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
+| `elixhauser_quan2005`   | _comorbidity_ | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
+| `pccc_v2.0`             | _pccc_        | High agreement, with documented differences     | Technology dependence/transplant mapping   |
+: Summary of encounter-level agreement between _medicalcoder_ and comparator implementations using MIMIC-IV v3.1 data. {#tbl-validation-summary}
 
 
 # Precomputed vs Regular Expressions
@@ -618,7 +620,7 @@ Table X
 The default method in _medicalcoder_ for mapping ICD codes to comorbidities is
 to use a precomputed sets of known ICD codes and use database style joins to and
 lookup tables.   _comorbidity_, and many other utilities, use regular
-expressions or partical string matching to make the maps. This can lead to
+expressions or partial string matching to make the maps. This can lead to
 problems.  For example, the strings "C189N" and "C189NOTACODE" are not a valid
 ICD code, and will be flagged as a cancer comorbidity via
 `comorbidity::comorbidity()` but will not be flagged by
@@ -639,7 +641,7 @@ Type 2 diabetes mellitus With multiple complications With diabetic foot
 syndrome, controlled, and
 [E11.75](https://gesund.bund.de/en/icd-code-suche/e11-75): Type 2 diabetes
 mellitus With multiple complications With diabetic foot syndrome, uncontrolled.
-These two codes are extensions under the E11 cateory; subcategory E11.7 which is
+These two codes are extensions under the E11 category; subcategory E11.7 which is
 listed in @quan2005 as diabetes with complications for Charlson and Elixhauser.
 
 ```{r}
@@ -685,11 +687,11 @@ used with care.
 
 # Longitudinal Flagging
 
-Under the assumption that all relevent ICD codes are (re)reported on each
+Under the assumption that all relevant ICD codes are (re)reported on each
 encounter then there is no need to carry-forward comorbidity flags.  However,
 that assumption is rarely valid. _medicalcoder_ provides a utility for
-indefinite carry-forwared of a condition. As reported in the primary manuscript
-this includes accounting for condtions which should not be reported on a
+indefinite carry-forward of a condition. As reported in the primary manuscript
+this includes accounting for conditions which should not be reported on a
 specific encounter but are reported on the following encounters. In the
 following we will explore some of the pros and cons of the indefinite
 carry-forward of comorbidities.
@@ -748,7 +750,7 @@ for the Charlson condition flagged by `medicalcoder::comorbidities()`.  For most
 conditions the number of encounters flagged is greater when using the cumulative
 flag method compared to the the current flag method.  However, there is a
 notable counter example: dm (diabetes without complications) and dmc (diabetes
-with complications).  _medicalcoder_ will carry forwared the severity of disease
+with complications).  _medicalcoder_ will carry forward the severity of disease
 an report the more severe version after it has been reported.
 
 ```{r}
@@ -882,7 +884,7 @@ non-technology-dependent until the final encounter.
 ## Diabetes - Chronic vs Acute Disease
 
 Non-gestational diabetes is generally considered a chronic condition.  Even when
-well managed, it is still a relevent diagnosis.  The ICD-10 code defining
+well managed, it is still a relevant diagnosis.  The ICD-10 code defining
 diabetes (with and without complications) for Charlson comorbidities as
 defined by Quan et al. (2005, 2011), are all in the E10, E11, E12, E13, and E14
 categories.
@@ -1020,9 +1022,9 @@ each expression ten times.
 @fig-benchmark-summary shows the median time in seconds along with error bars
 for the IQR for the ten iterations.  The reason for the drastic speed
 improvement between _medicalcoder_ and other utilities is that _medicalcoder_
-uses precomputed maps between known ICD codes and conditions where as
-_comorbidity_ uses regular expressions, and _pccc_ uses partical string
-matching.  The MIMIC-IV code also partical string matiching and lexigraphical
+uses precomputed maps between known ICD codes and conditions whereas
+_comorbidity_ uses regular expressions, and _pccc_ uses partial string
+matching.  The MIMIC-IV code also uses partial string matching and lexicographical
 between statements.  The numeric values represented in @fig-benchmark-summary
 are reported in @tbl-time-to-compute.
 ```{r}
