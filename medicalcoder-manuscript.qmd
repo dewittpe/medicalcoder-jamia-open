@@ -178,7 +178,7 @@ data.
 
 Accurate identification of clinical conditions in large healthcare datasets
 depends on International Classification of Diseases (ICD) codes
-[@quan2005;@quan2011;@feinstein2024pediatric;@feudtner2014pediatric;@ahrq2025;@glasheen2019;@ludvigsson2021adaptation;@ludvigsson2023adaptation].
+[@quan2005;@quan2011;@feinstein2024pediatric;@feudtner2014pediatric;@ahrqicd10;@glasheen2019;@ludvigsson2021adaptation;@ludvigsson2023adaptation].
 Comorbidity algorithms built on these codes support risk adjustment, cohort
 characterization, and reproducible studies of patient populations
 [@quan2005;@yurkovich2015systematic;@guo2022evaluation;@li2008risk].
@@ -192,8 +192,8 @@ and requires manual reconciliation of mixed-version datasets
 Despite the importance of longitudinal data in modern medical
 research [@hripcsak2013next;@casey2016using;@jensen2014temporal], comorbidity
 software typically operates at the encounter
-level [@pcccv3sas;@ahrq2017;@dewitt2026pccc;@ahrq2025;@feinstein2018pccc;@r-comorbidity;@r-icdcomorbid;@r-multimorbidity;@johnson2018mimic;@johnson2022mimiccode].
-While the AHRQ [@ahrq2025] Elixhauser variants account for present-on-admission
+level [@pcccv3sas;@ahrq2017;@dewitt2026pccc;@ahrqicd10;@feinstein2018pccc;@r-comorbidity;@r-icdcomorbid;@r-multimorbidity;@johnson2018mimic;@johnson2022mimiccode].
+While the AHRQ [@ahrqicd10] Elixhauser variants account for present-on-admission
 (POA) indicators and exemptions, they do not propagate conditions across
 encounters within a patient record. As a result, conditions that arise during
 acute care and are appropriately excluded from the index encounter may be missed
@@ -291,7 +291,7 @@ versions of R &geq; 3.5.0 without suggested packages, and for versions &geq;
 
 The test suite includes validation between `method = "pccc_v2.0"` and the R
 package _pccc_ [@dewitt2026pccc;@feinstein2018pccc], and between `method =
-elixhauser_ahrq20XX` and the published SAS code from AHRQ[^d] [@ahrq2025]. As
+elixhauser_ahrq20XX` and the published SAS code from AHRQ[^d] [@ahrqicd10]. As
 part of the website[^e] build, consistency between `method = charlson_quan2005`
 and the SQL code provided by
 MIT-LCP/mimic-code/mimic-iv [@johnson2018mimic;@johnson2022mimiccode] is
