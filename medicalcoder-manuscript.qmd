@@ -165,8 +165,8 @@ diagnoses, and follow patients across multiple encounters to avoid missing
 conditions that appear earlier in their history.
 
 _medicalcoder_ is fast, works with base R, has extensive automated tests, and
-has been validated against reference implementations. It helps researchers apply
-comorbidity algorithms with consistency, improving the quality and
+has validated encounter-level outputs against reference implementations. It
+helps researchers apply comorbidity algorithms with consistency, improving the quality and
 reproducibility of studies using electronic health records or administrative
 data.
 
@@ -243,18 +243,21 @@ Control and Prevention (CDC; fiscal years `r cdc9`) and ICD-9-CM and ICD-9-PCS
 codes from the Centers for Medicare and Medicaid Services (CMS; fiscal years `r
 cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`) and the
 World Health Organization (WHO; calendar years `r who10`) are included, along
-with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`)
-**(TODO: ADD SE AND AM NOTES)**. The
+with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`),
+ICD-10 Australian Modification data from the Independent Health and Aged Care
+Pricing Authority, and ICD-10-SE data from Socialstyrelsen. The
 internal database will be extended as additional code sets are published.
 
-Charlson variants include Deyo (as denoted in [@quan2005]), Quan (2005; 2011),
-CDMF (2019) [@glasheen2019], Ludvigsson (2021)
+Charlson variants include Deyo (as denoted in [@quan2005]), Quan (2005; 2011)
+[@quan2005;@quan2011], CDMF (2019) [@glasheen2019], Ludvigsson (2021)
 [@ludvigsson2021adaptation;@ludvigsson2023adaptation], Sundararajan (2004)
 [@sundararajan2004], and Beyrer (2021) [@beyrer2021validation]. Elixhauser
-variants include the original Elixhauser (1988), AHRQ Web (ICD-9 based as
-denoted in @quan2005), Quan (2005), and AHRQ ICD-10 fiscal-year implementations
-(2022–2026). PCCC variants include versions 2.0, 2.1, 3.0, and 3.1. Additional
-variants will be added as they are released.
+variants include the original Elixhauser (1988) [@elixhauser1998], AHRQ Web
+(ICD-9 based as denoted in [@quan2005]), Quan (2005) [@quan2005], and AHRQ
+ICD-10 fiscal-year implementations (2022–2026) [@ahrqicd10]. PCCC variants
+include versions 2.0 [@feinstein2018pccc], 2.1, 3.0 [@feinstein2024pediatric],
+and 3.1. Additional variants of all three families can and will be added over
+time.
 
 _medicalcoder_ maps ICD codes to comorbidity conditions using method-specific
 lookup tables derived from its internal ICD database. These lookup tables are
@@ -460,20 +463,20 @@ implementation after harmonizing output conventions for severity handling, and
 Elixhauser flags matched _comorbidity_ for shared condition indicators. PCCC
 differences were limited to documented technology-dependence and
 transplant-category handling differences described in the supplement.
-Quantitative agreement summaries and discordance explanations are provided in
-Supplementary Table X. **TODO: WHICH TABLE????**
+Agreement summaries and discordance explanations are provided in Supplementary
+Table 3.
 
 Additionally, the comparators all use some form of partial string matching in
 their implementations for mapping ICD codes to conditions.  In contrast,
 _medicalcoder_ uses a set of precomputed valid ICD codes to map between input
-data and conditions using database style joins.  As a result, comparators
-implementations can return false positive flags when an invalid input string
-such as tarts with a valid substring ICD code substring.  For example, the
-ICD-10 code C189 maps to 'any malignancy' under Charlson, _comorbidity_ will map
-C189NOTACODE to the condition bemuse the string starts with C18. _medicalcoder_
-will not map the invalid string to a condition.   Further, the _medicalcoder_
-implementation is computationally more efficient, Figure 3, requiring less time
-to compute.  **TODO: WHERE IN THE SUPPLEMENT????**
+data and conditions using database-style joins.  As a result, comparator
+implementations that rely on prefix or regular-expression matching can return
+false-positive flags when an invalid input string starts with a valid ICD code
+substring. For example, the ICD-10 code C189 maps to "any malignancy" under
+Charlson; _comorbidity_ maps C189NOTACODE to that condition because the string
+starts with C18. _medicalcoder_ does not map the invalid string to a condition.
+Benchmarking in the supplement and Figure 3 also shows that _medicalcoder_
+requires less time to compute comorbidity flags in the MIMIC-IV examples.
 
 _medicalcoder_ also provides ICD utility functions for data preparation and
 validation. `medicalcoder::get_icd_codes()` exposes the internal ICD database,
@@ -557,14 +560,14 @@ datasets.
 
 Extensive testing against published SAS, SQL, and R reference implementations
 demonstrates that _medicalcoder_ produces results consistent with established
-algorithms while offering additional flexibility. Automated testing of the
-internal and user-facing functions (**TODO: UPDATE** 97% code lines covered as of _medicalcoder_
-v0.8.0) ensures consistent and reliable behavior of the package.
+encounter-level algorithms while offering additional flexibility. Automated
+testing of internal and user-facing functions supports consistent package
+behavior across R versions.
 
 To our knowledge, no currently available R package jointly supports multiple
 comorbidity algorithms, mixed ICD versions, present-on-admission logic, and
 cumulative longitudinal flagging within a single, reproducible framework.
-_medicalcoder_ has these capabilities and enables researchers to accurately
+_medicalcoder_ has these capabilities and enables researchers to consistently
 characterize patient complexity and to systematically evaluate how different
 comorbidity definitions influence analytic results.
 
