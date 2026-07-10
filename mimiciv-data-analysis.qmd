@@ -13,11 +13,14 @@ format:
     include-in-header:
       text: |
         \usepackage{float}
+        \floatplacement{table}{H}
+        \floatplacement{figure}{H}
         \usepackage[table]{xcolor}
         \usepackage{threeparttable}
         \usepackage{longtable}
         \newenvironment{ldescription}{\begin{description}}{\end{description}}
         \newcommand{\code}[1]{\texttt{#1}}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},fontsize=\small}
 
 bibliography: references.bib
 ---
@@ -31,7 +34,10 @@ knitr::opts_chunk$set(
   collapse = TRUE
 )
 
-options(knitr.kable.NA = "")
+options(
+  knitr.kable.NA = "",
+  str = strOptions(strict.width = "wrap")
+)
 
 # Go Avs Go!
 # {
@@ -81,7 +87,7 @@ set by PhysioNet[^1].
 
 Within the _medicalcoder_ package are implementations for several variants of
 the Charlson, Elixhauser, and PCCC comorbidity algorithms,
-(@tbl-comorbidity-methods) [@beyrer2021validation;@quan2005;@quan2011;@glasheen2019;@ahrqicd10;@feudtner2014pediatric;@feinstein2024pediatric;@dewitt2026pccc;@feinstein2018pccc;@pcccv3sas].
+(@tbl-comorbidity-methods) [@beyrer2021validation;@quan2005;@quan2011;@glasheen2019;@ahrqicd10;@feudtner2014pediatric;@feinstein2024pediatric;@dewitt2026pccc;@feinstein2018pccc;@pcccv3sas;@ludvigsson2021adaptation;@ludvigsson2023adaptation;@sundararajan2004].
 
 __NOTE:__
 The MIMIC-IV data consist of only adult patients.
@@ -181,9 +187,9 @@ Our final `mimicivDT` object:
 ```
 
 There are `r qwraps2::frmt(nrow(mimicivDT))` total rows of data for
-`r qwraps2::frmt(length(unique(mimicivDT$subject_id)))` unique subjects and a
+`r qwraps2::frmt(data.table::uniqueN(mimicivDT, by = "subject_id"))` unique subjects and a
 total of
-`r qwraps2::frmt(nrow(unique(mimicivDT[, .(subject_id, hadm_id)])))` unique
+`r qwraps2::frmt(data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id")))` unique
 hospital encounters.
 
 # Investigating ICD Codes
@@ -276,7 +282,7 @@ con <- textConnection("help_string", "w")
 tools::Rd2latex(help_file, out = con)
 close(con)
 ```
-**Usage**
+**Usage:**
 ```{r}
 #| label: medicalcoder-comorbidities-help-usage
 #| echo: false
@@ -287,7 +293,7 @@ help_string[
     to = which(startsWith(help_string, "\\end{Usage}")) - 1L
   )] |> cat(sep = "\n")
 ```
-**Arguments**
+**Arguments:**
 ```{r}
 #| label: medicalcoder-comorbidities-help-arguments
 #| echo: false
@@ -308,7 +314,9 @@ look at the names of the lookup table mapping ICD codes to conditions:
 ```
 The `charlson_quan2011` method will be applied to the `mimicivDT` dataset and
 the results will be compared to the results from the
-`comorbidity::comorbidity()` method.
+`comorbidity::comorbidity()` method.  These are the same ICD code mappings as
+`charlson_quan2005`.  The difference is the weights used for the Charlson
+Comorbidity Index calculation.
 ```{r}
 #| label: medicalcoder-charlson-quan2011
 ```
@@ -648,12 +656,12 @@ differences in returned objects and severity conventions.
 #| include: false
 ```
 
-| _medicalcoder_ method   | Comparator    | Discordant Encounters| Agreement summary                               | Main reason for discordance                |
-|:------------------------|:--------------|:--------------------:|:------------------------------------------------|:-------------------------------------------|
-| `charlson_mimicivcode`  | MIMIC-IV Code |  0                   | Exact match after harmonizing severity handling | Structural output/severity handling        |
-| `charlson_quan2011`     | _comorbidity_ |  0                   | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
-| `elixhauser_quan2005`   | _comorbidity_ |  0                   | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
-| `pccc_v2.0`             | _pccc_        | `r mvp_dl`           | High agreement, with documented differences     | Technology dependence/transplant mapping   |
+| _medicalcoder_ method vs. Comparator    | Discordant Encounters| Agreement summary                               | Main reason for discordance                |
+|:---------------------------------------:|:--------------------:|:------------------------------------------------|:-------------------------------------------|
+| `charlson_mimicivcode` vs MIMIC-IV Code |  0                   | Exact match after harmonizing severity handling | Structural output/severity handling        |
+| `charlson_quan2011`    vs _comorbidity_ |  0                   | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
+| `elixhauser_quan2005`  vs _comorbidity_ |  0                   | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
+| `pccc_v2.0`            vs _pccc_        | `r mvp_dl`           | High agreement, with documented differences     | Technology dependence/transplant mapping   |
 : Summary of encounter-level agreement between _medicalcoder_ and comparator implementations using MIMIC-IV v3.1 data, a total of `r mimicDTenc` encounters. {#tbl-validation-summary}
 
 
@@ -707,7 +715,6 @@ implemented.
 
 ```{r}
 #| label: precomputed-v-regex-with-regex
-#| error: true
 ```
 
 The current regular expressions are avaiable to end users via
@@ -895,7 +902,7 @@ are handled has considerable impact on the flagged comorbidities.
 #| include: false
 ```
 
-Let's look at the records for `subject_id = 10728333`.  @tbl-s10728333 shows the
+Let's look at the records for `subject_id = 10728333`.  @tbl-s10728333-latex shows the
 flagging of metabolic, miscellaneous, and respiratory conditions for PCCC v3
 using `flag.method = 'current'` or `flag.method = 'cumulative'`.  For this
 patient, on encounter 1, a technology-dependent ICD code related to a
@@ -918,9 +925,11 @@ comorbidity until encounter 6, and would incorrectly classify as
 non-technology-dependent until the final encounter.
 
 ```{r}
-#| label: tbl-s10728333
+#| label: tbl-s10728333-latex
 #| echo: false
 #| results: "asis"
+#| tbl-cap: |
+#|   Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to an ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity based on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm, the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
 ```
 
 ## Diabetes - Chronic vs Acute Disease
@@ -1075,9 +1084,14 @@ are reported in @tbl-time-to-compute.
 #| fig-cap: |
 #|   Time (bar height = median, error bars = IQR) in seconds to apply several
 #|   comorbidity algorithms to the MIMIC-IV dataset. Each method was evaluated
-#|   10 times.
+#|   10 times.  See @tbl-session-info-platform for computational platform
+#|   details.
 #| fig-width: 7
 #| fig-height: 7
+```
+```{r}
+#| label: save-fig-benchmark-summary
+#| include: false
 ```
 ```{r}
 #| label: tbl-time-to-compute
@@ -1138,10 +1152,11 @@ machine, R, and the R packages used to produce this document.
 ```
 ```{r}
 #| label: sessioninfo-with-memory-cpu
+#| include: false
 ```
 ```{r}
 #| label: tbl-session-info-platform
-#| tbl-cap: "Details on the machine to generate this document."
+#| tbl-cap: "Details on the machine that generated this document."
 #| echo: false
 #| results: "asis"
 ```

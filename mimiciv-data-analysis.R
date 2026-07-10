@@ -48,9 +48,11 @@ Comorbidity Method        | Notes
 charlson_beyrer2021       | U.S. extension of Quan et al. (2005) by Beyrer et al. (2021)
 charlson_cdmf2019         | ICD-9 and ICD-10 defined in [@glasheen2019]
 charlson_deyo1992         | ICD-9 codes defined in Table 1 of Quan et al. (2005)
+charlson_ludvigsson2021   | ICD-10-SE variant Ludvigsson et al. (2021, 2023)
 charlson_mimicivcode      | MIMIC-IV Charlson SQL from [`mimic-code`](https://github.com/MIT-LCP/mimic-code)
 charlson_quan2005         | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011)
 charlson_quan2011         | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011)
+charlson_sundararajan2004 | ICD-10-AM codes variant Sundararajan et al. (2004)
 elixhauser_elixhauser1988 | ICD-9 codes defined in Table 2 of Quan et al. (2005)
 elixhauser_ahrq_web       | ICD-9 codes defined in Table 2 of Quan et al. (2005)
 elixhauser_quan2005       | ICD-9 and ICD-10 defined in Table 2 of Quan et al. (2005)
@@ -76,9 +78,9 @@ kableExtra::kbl(
 kableExtra::kable_styling(
   latex_options = c("striped", "scale_down", "HOLD_position")
 ) |>
-kableExtra::pack_rows(group_label = "Charlson",   start_row =  1, end_row =  4) |>
-kableExtra::pack_rows(group_label = "Elixhauser", start_row =  5, end_row = 13) |>
-kableExtra::pack_rows(group_label = "PCCC",       start_row = 14, end_row = 17)
+kableExtra::pack_rows(group_label = "Charlson",   start_row =  1, end_row =  8) |>
+kableExtra::pack_rows(group_label = "Elixhauser", start_row =  9, end_row = 17) |>
+kableExtra::pack_rows(group_label = "PCCC",       start_row = 18, end_row = 21)
 
 ## ---- tbl-mimicivdata-checksums ----
 data.table::fread(
@@ -234,17 +236,29 @@ print() |>
 stopifnot()
 
 ## ---- mimicivDT-data-structure ----
-str(mimicivDT)
-summary(mimicivDT)
+str(mimicivDT, width = 72)
 
 ## ---- mimicivdata-unique-icd-codes ----
-unique_icdcodes <- mimicivDT[!is.na(icd_code), unique(.SD), .SDcols = c("icd_code", "icd_version", "dx")]
+unique_icdcodes <-
+  mimicivDT[
+    !is.na(icd_code),
+    unique(.SD),
+    .SDcols = c("icd_code", "icd_version", "dx")
+  ]
 
 ## ---- mimicivdata-is-icd-is-cms ----
-unique_icdcodes[icd_version ==  9 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 0, src = "cms")]
-unique_icdcodes[icd_version ==  9 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 1, src = "cms")]
-unique_icdcodes[icd_version == 10 & dx == 0, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 0, src = "cms")]
-unique_icdcodes[icd_version == 10 & dx == 1, iscms := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 1, src = "cms")]
+# add the column `iscms`, need to call once for each pair of icdv/dx,
+# This could be done with four explict calls or one with a by statement
+unique_icdcodes[
+  ,
+  iscms := medicalcoder::is_icd(
+             x    = icd_code,
+             icdv = icd_version,
+             dx   = dx,
+             src  = "cms"
+           ),
+  by = .(icd_version, dx)
+]
 
 ## ---- mimicivdata-n-by-iscms ----
 unique_icdcodes[, .N, keyby = .(iscms)]
@@ -261,17 +275,31 @@ head(notcms)
 all(is.na(notcms[["assignable_start"]]))
 
 ## ---- mimicivdata-is-icd-is-cms-headers ----
-unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 0, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 0, src = "cms", headerok = TRUE)]
-unique_icdcodes[!is.na(icd_code) & icd_version ==  9 & dx == 1, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv =  9, dx = 1, src = "cms", headerok = TRUE)]
-unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 0, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 0, src = "cms", headerok = TRUE)]
-unique_icdcodes[!is.na(icd_code) & icd_version == 10 & dx == 1, iscmshdrok := medicalcoder::is_icd(x = icd_code, icdv = 10, dx = 1, src = "cms", headerok = TRUE)]
-
+unique_icdcodes[
+  !is.na(icd_code),
+  iscmshdrok := medicalcoder::is_icd(
+                  x = icd_code,
+                  icdv = icd_version,
+                  dx = dx,
+                  src = "cms",
+                  headerok = TRUE
+                ),
+  by = .(icd_version, dx)
+  ]
 unique_icdcodes[, .N, keyby = .(iscms, iscmshdrok)]
 
 ## ---- icd-code-look-up-examples ----
 medicalcoder::lookup_icd_codes(c("Z31", "S73109"))
-subset(medicalcoder::get_icd_codes(with.description = TRUE), code == "Z31")
-subset(medicalcoder::get_icd_codes(with.description = TRUE), startsWith(code, "S73109"))
+
+subset(
+  x = medicalcoder::get_icd_codes(with.description = TRUE),
+  subset = code == "Z31"
+)
+
+subset(
+  x = medicalcoder::get_icd_codes(with.description = TRUE),
+  subset = startsWith(code, "S73109")
+)
 
 ## ---- charlson-variants ----
 grep(
@@ -298,16 +326,15 @@ data.table::setkey(medicalcoder_charlson_quan2011, subject_id, hadm_id)
 ## ---- medicalcoder-charlson-mimiciv ----
 medicalcoder_charlson_mimiciv <-
   medicalcoder::comorbidities(
-    data        = mimicivDT,  # object inheriting data.frame
-    icd.codes   = "icd_code", # character string name of icd codes in data
+    data        = mimicivDT,
+    icd.codes   = "icd_code",
     id.vars     = c("subject_id", "hadm_id"),
     icdv.var    = "icd_version",
     dx.var      = "dx",
     age.var     = "age",
-    poa         = 1L,    # consider all codes present on admission
-    primarydx   = 0L,    # consider all diagnosis codes secondary diagnoses.
+    poa         = 1L,
+    primarydx   = 0L,
     method      = "charlson_mimicivcode",
-    flag.method = "current" # default
   )
 data.table::setkey(medicalcoder_charlson_mimiciv, subject_id, hadm_id)
 
@@ -372,40 +399,25 @@ mimiciv_charlson_sql <-
   )
 
 # modify the query to work in SQLite
-# replace Google Big Query table names with table names to be using in the local
-# RSQLite in memory database.
-mimiciv_charlson_sql <-
-  gsub(
-    pattern = "physionet-data.mimiciv_hosp.admissions",
-    replacement = "admissions",
-    x = mimiciv_charlson_sql,
-    fixed = TRUE
+# replace Google Big Query table names with table names to be using in 
+# the local RSQLite in memory database.  Three table names need to be
+# changed and one function call: GBQ GREATEST needs to be replaced by MAX
+prs <-
+  c(
+    "physionet-data.mimiciv_hosp.admissions" = "admissions",
+    "physionet-data.mimiciv_hosp.diagnoses_icd" = "diagnoses",
+    "physionet-data.mimiciv_derived.age" = "ages",
+    "GREATEST" = "MAX"
   )
-
-mimiciv_charlson_sql <-
-  gsub(
-    pattern = "physionet-data.mimiciv_hosp.diagnoses_icd",
-    replacement = "diagnoses",
-    x = mimiciv_charlson_sql,
-    fixed = TRUE
-  )
-
-mimiciv_charlson_sql <-
-  gsub(
-    pattern = "physionet-data.mimiciv_derived.age",
-    replacement = "ages",
-    x = mimiciv_charlson_sql,
-    fixed = TRUE
-  )
-
-# Replace the Google Big Query SQL function GREATEST with MAX
-mimiciv_charlson_sql <-
-  gsub(
-    pattern = "GREATEST",
-    replacement = "MAX",
-    x = mimiciv_charlson_sql,
-    fixed = TRUE
-  )
+for(i in seq_len(length(prs))) {
+  mimiciv_charlson_sql <-
+    gsub(
+      pattern     = names(prs)[i],
+      replacement = prs[i],
+      x           = mimiciv_charlson_sql,
+      fixed       = TRUE
+    )
+}
 
 mimiciv_charlson_sql <- paste(mimiciv_charlson_sql, collapse = "\n")
 
@@ -413,10 +425,12 @@ mimiciv_charlson_sql <- paste(mimiciv_charlson_sql, collapse = "\n")
 con <- odbc::dbConnect(drv = RSQLite::SQLite(), dbname = ":memory:")
 
 # add data to the data base
-odbc::dbWriteTable(conn = con, name = "diagnoses",  value = mimicivdata$diagnoses)
-odbc::dbWriteTable(conn = con, name = "admissions", value = mimicivdata$admissions)
-odbc::dbWriteTable(conn = con, name = "patients",   value = mimicivdata$patients)
-odbc::dbWriteTable(conn = con, name = "ages",       value = mimicivdata$ages)
+with(mimicivdata, {
+  odbc::dbWriteTable(conn = con, name = "diagnoses",  value = diagnoses_icd)
+  odbc::dbWriteTable(conn = con, name = "admissions", value = admissions)
+  odbc::dbWriteTable(conn = con, name = "patients",   value = patients)
+  odbc::dbWriteTable(conn = con, name = "ages",       value = ages)
+})
 
 # Run the query and record the time required to do so
 mimiciv_charlson <- odbc::dbGetQuery(con, mimiciv_charlson_sql)
@@ -432,8 +446,8 @@ comorbidity_charlson_icd9 <-
     id      = "cid",
     code    = "icd_code",
     map     = "charlson_icd9_quan",
-    assign0 = TRUE # set less severe comorbidities flags to 0 when more severe
-                   # comorbidities is also flagged
+    assign0 = TRUE # set less severe comorbidities flags to 0 when more
+                   # severe comorbidities is also flagged
   )
 
 comorbidity_charlson_icd10 <-
@@ -640,7 +654,7 @@ DF <-
     codeids   = c("C1", "C18", "C189", "C189N", "C189NOTACODE"),
     stringsAsFactors = FALSE
   )
-canc <- 
+canc <-
   comorbidity::comorbidity(
     x = DF,
     id = "codeids",
@@ -700,14 +714,31 @@ subset(
 
 ## ---- precomputed-v-regex-false-negative ----
 # data from https://gesund.bund.de/en/icd-code-suche/e11-7
-GMdata <- data.table::fread(text ="
-CodeID;ICD-Code;Description
-ICD-10-GM E11.72;E11.72;Type 2 diabetes mellitus With multiple complications With other multiple complications, controlled
-ICD-10-GM E11.73;E11.73;Type 2 diabetes mellitus With multiple complications With other multiple complications, uncontrolled
-ICD-10-GM E11.74;E11.74;Type 2 diabetes mellitus With multiple complications With diabetic foot syndrome, controlled  
-ICD-10-GM E11.75;E11.75;Type 2 diabetes mellitus With multiple complications With diabetic foot syndrome, uncontrolled")
+# all of the description start with "Type 2 diabetes mellitus With
+# multiple complications With" and the continue as:
+#   E11.72: other multiple complications, controlled  
+#   E11.73: other multiple complications, uncontrolled
+#   E11.74: diabetic foot syndrome, controlled        
+#   E11.75: diabetic foot syndrome, uncontrolled
 
-common_args <- list( data = GMdata, id.vars = "CodeID", icd.codes = "ICD-Code", dx = 1, icdv = 10, poa = 1, primarydx = 0)
+GMdata <- data.table::fread(text ="
+CodeID;ICD-Code
+ICD-10-GM E11.72;E11.72
+ICD-10-GM E11.73;E11.73
+ICD-10-GM E11.74;E11.74
+ICD-10-GM E11.75;E11.75"
+)
+
+common_args <-
+  list(
+    data      = GMdata,
+    id.vars   = "CodeID",
+    icd.codes = "ICD-Code",
+    dx        = 1,
+    icdv      = 10,
+    poa       = 1,
+    primarydx = 0
+  )
 
 do.call(
   what = medicalcoder::comorbidities,
@@ -725,10 +756,13 @@ do.call(
   args = c(common_args, list(method = "charlson_quan2005", mapping = "regex"))
 )[, c("CodeID", "dm", "dmc")]
 
-do.call(
-  what = medicalcoder::comorbidities,
-  args = c(common_args, list(method = "elixhauser_quan2005", mapping = "regex"))
-)[, c("CodeID", "DM", "DMCX")]
+try(
+  do.call(
+    what = medicalcoder::comorbidities,
+    args = c(common_args, list(method = "elixhauser_quan2005", mapping = "regex"))
+  )[, c("CodeID", "DM", "DMCX")]
+, silent = TRUE) |>
+print()
 
 ## ---- precomputed-v-regex-patterns ----
 str(medicalcoder:::..mdcr_internal_charlson_regex..)
@@ -952,7 +986,7 @@ mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_tech_dep, pccc = tech_dep)]
 mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_transplant, pccc = transplant)]
 
 ## ---- summary-medicalcoder-v-others ----
-mimicDTenc <- data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id"))
+mimicDTenc <- qwraps2::frmt(data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id")))
 mvp_dl <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "latex") ]
 mvp_dm <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "markdown") ]
 
@@ -1199,12 +1233,9 @@ s10728333 <-
 Filter(f = function(x) sum(x) > 0, s10728333)
 # metabolic, respriatory, any_tech, num_cmrb, misc,
 
-## ---- tbl-s10728333 ----
-# NOTE: not using the quarto yaml for the table crossref so I can use short
-# captions
-DT0 <- s10728333[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
-DT1 <-
-  DT0[
+s10728333 <- s10728333[, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
+s10728333 <-
+  s10728333[
     ,
     .(enc_seq,
       metabolic__current = data.table::fcase(
@@ -1244,22 +1275,23 @@ DT1 <-
     )
   ]
 
+## ---- tbl-s10728333-latex ----
+# add footers for the table
+s10728333latex <- data.table::copy(s10728333)
 ftm1 <- "*"#kableExtra::footnote_marker_symbol(1, format = "latex")
 ftm2 <- "\\dag"#kableExtra::footnote_marker_symbol(2, format = "latex")
-DT1[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
-DT1[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
-DT1[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
+s10728333latex[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
+s10728333latex[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
+s10728333latex[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
 
 kableExtra::kbl(
-  x = DT1,
+  x = s10728333latex,
   col.names = c("Encounter", rep(c("Current", "Cumulative"), 5)),
   format = "latex",
   booktabs = TRUE,
   row.names = FALSE,
-  align = rep("c", ncol(DT1)),
-  escape = FALSE,
-  caption.short = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333.",
-  caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to an ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity based on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm, the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
+  align = rep("c", ncol(s10728333latex)),
+  escape = FALSE
   ) |>
 kableExtra::kable_styling(
   latex_options = c("striped", "scale_down", "HOLD_position")
@@ -1348,14 +1380,44 @@ dms[subject_id %in% type1subjects][cumulative_between_current_flags == 1]
 dms[subject_id == 10252385]
 
 ## ---- cumulative-flags-between-and-after-current-flag ----
-dms[, current_flags_before := as.integer((cumsum(current) - current) > 0), by = .(subject_id)]
-dms[, current_flags_after  := as.integer(rev(cumsum(rev(current)) - current) > 0), by = .(subject_id)]
+dms[
+  ,
+  current_flags_before := as.integer((cumsum(current) - current) > 0),
+  by = .(subject_id)
+]
 
-dms[, cumulative_between_current_flags   := as.integer((current != cumulative) & current_flags_before == 1L & current_flags_after == 1L)]
-dms[, cumulative_only_after_current_flag := as.integer((current != cumulative) & current_flags_before == 1L & current_flags_after == 0L)]
+dms[
+  ,
+  current_flags_after := as.integer(rev(cumsum(rev(current)) - current) > 0),
+  by = .(subject_id)
+]
+
+dms[
+  ,
+  cumulative_between_current_flags :=
+    as.integer(
+      (current != cumulative) &
+      (current_flags_before == 1L) &
+      (current_flags_after == 1L)
+    )
+]
+
+dms[
+  ,
+  cumulative_only_after_current_flag :=
+    as.integer(
+      (current != cumulative) & 
+      (current_flags_before == 1L) &
+      (current_flags_after == 0L)
+    )
+]
 
 # Number of Encounters:
-dms[, .(Encounters = .N), keyby = .(cumulative_between_current_flags, cumulative_only_after_current_flag)]
+dms[
+  ,
+  .(Encounters = .N),
+  keyby = .(cumulative_between_current_flags, cumulative_only_after_current_flag)
+]
 
 ## ---- cumulative-flags-between-and-after-current-flag-subject-level ----
 # counts of subjects with encounters flagged
@@ -1453,7 +1515,9 @@ mal <- mal[subject_history_of + subject_observed_mal > 0]
 mal <-
   merge(
     x = mal,
-    y = medicalcoder_charlson_cumulative[, .(subject_id, enc_seq, medicalcoder_cummulative_mal = mal, medicalcoder_cummulative_mst = mst)],
+    y = medicalcoder_charlson_cumulative[
+          , .(subject_id, enc_seq, mdcr_cummulative_mal = mal, mdcr_cummulative_mst = mst)
+        ],
     all.x = TRUE,
     by = c("subject_id", "enc_seq")
   )
@@ -1669,63 +1733,14 @@ figure2pros[["es"]] <-
   ]
 
 ## ---- s10728333-manuscript ----
-s10728333 <-
-  merge(
-    x = medicalcoder_pcccv3.1_current[subject_id == 10728333],
-    y = medicalcoder_pcccv3.1_cumulative[subject_id == 10728333],
-    all = TRUE,
-    by = c("subject_id", "enc_seq"),
-    suffixes = c("_current", "_cumulative")
- )
-DT0 <- s10728333[subject_id == 10728333, .SD, .SDcols = patterns("enc_seq|^(met|resp|misc|num_|any_tech)")]
-DT1 <-
-  DT0[
-    ,
-    .(enc_seq,
-      metabolic__current = data.table::fcase(
-        metabolic_dxpr_only_current == 1, "DxPr",
-        metabolic_tech_only_current == 1, "Tech",
-        metabolic_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      metabolic__cumulative = data.table::fcase(
-        metabolic_dxpr_only_cumulative == 1, "DxPr",
-        metabolic_tech_only_cumulative == 1, "Tech",
-        metabolic_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      misc__current = data.table::fcase(
-        misc_dxpr_only_current == 1, "DxPr",
-        misc_tech_only_current == 1, "Tech",
-        misc_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      misc__cumulative = data.table::fcase(
-        misc_dxpr_only_cumulative == 1, "DxPr",
-        misc_tech_only_cumulative == 1, "Tech",
-        misc_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      respiratory__current = data.table::fcase(
-        respiratory_dxpr_only_current == 1, "DxPr",
-        respiratory_tech_only_current == 1, "Tech",
-        respiratory_dxpr_and_tech_current == 1, "DxPrTech",
-        default = ""),
-      respiratory__cumulative = data.table::fcase(
-        respiratory_dxpr_only_cumulative == 1, "DxPr",
-        respiratory_tech_only_cumulative == 1, "Tech",
-        respiratory_dxpr_and_tech_cumulative == 1, "DxPrTech",
-        default = ""),
-      any_tech_dep_current = data.table::fifelse(any_tech_dep_current == 1, "1", ""),
-      any_tech_dep_cumulative = data.table::fifelse(any_tech_dep_cumulative == 1, "1", ""),
-      num_cmrb_current = as.character(num_cmrb_current),
-      num_cmrb_cumulative = as.character(num_cmrb_cumulative)
-    )
-  ]
-
+s10728333markdown <- data.table::copy(s10728333)
 ftm1 <- "*"
 ftm2 <- "†"
-DT1[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
-DT1[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
-DT1[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
+s10728333markdown[enc_seq == 1, `:=`(respiratory__current = ftm1, respiratory__cumulative = ftm1)]
+s10728333markdown[enc_seq %in% 2:3,`:=`(respiratory__cumulative = ftm2)]
+s10728333markdown[enc_seq == 3, `:=`(misc__current = ftm1, misc__cumulative = ftm1)]
 
-DT1 |>
+s10728333markdown |>
   gt::gt(caption = "") |>
   gt::cols_align(align = "center") |>
   gt::tab_spanner("Metabolic", columns = c(metabolic__current, metabolic__cumulative)) |>
@@ -1743,8 +1758,6 @@ DT1 |>
   ) |>
   gt::tab_footnote(footnote = "* A technology-dependent code was reported on this encounter.  Since no non-technology-dependent code was reported no comorbidities are flagged.") |>
   gt::tab_footnote(footnote = "† A technology-dependent code has been carried forward in the record.  Since no non-technology-dependent code was reported on this, or a prior, encounter, no comorbidities are flagged.") |>
-  #gt::opt_table_font(size = 19)
-  #gt::tab_options(table.font.size = gt::px(10))
   gt::tab_style(
     style = gt::cell_text(size = "8pt"),
     locations = gt::cells_body()
@@ -1834,6 +1847,8 @@ data.table::setkey(benchmark_time_to_compute, Algorithm, `Flag Method`)
 
 ## ---- fig-benchmark-summary ----
 benchmark_summary_figure
+
+## ---- save-fig-benchmark-summary ----
 ggplot2::ggsave(
   plot = benchmark_summary_figure,
   filename = "figure3.pdf"

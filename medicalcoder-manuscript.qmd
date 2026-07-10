@@ -460,6 +460,10 @@ non-technology-dependent code.
 :::
 
 ```{r}
+#| label: s10728333
+#| include: false
+```
+```{r}
 #| label: s10728333-manuscript
 #| echo: false
 #| results: asis
