@@ -11,7 +11,7 @@ format:
             \pagenumbering{gobble}
 ---
 ```{r}
-#| label: examle-call
+#| label: example-call
 #| eval: false
 medicalcoder::comorbidities(
   ### Required inputs:

@@ -73,7 +73,7 @@ kableExtra::kbl(
   x = cm,
   format = "latex",
   booktabs = TRUE,
-  escape = FALSE,
+  escape = FALSE
 ) |>
 kableExtra::kable_styling(
   latex_options = c("striped", "scale_down", "HOLD_position")
@@ -1855,6 +1855,7 @@ ggplot2::ggsave(
 )
 
 ## ---- for-figure3-alt-text ----
+f3_yaxis_range <- ggplot2::ggplot_build(benchmark_summary_figure)$layout$panel_params[[1]]$y.range 
 mdcr_f3_range <- benchmarksDT[Tool == "medicalcoder", round(range(time / 1e9), digits = 1)]
 cmrb_f3_char_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "charlson", round(median(time / 1e9), digits = 1)]
 cmrb_f3_elix_median <- benchmarksDT[Tool == "comorbidity" & Algorithm == "elixhauser", round(median(time / 1e9), digits = 1)]

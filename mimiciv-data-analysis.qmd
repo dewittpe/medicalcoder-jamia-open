@@ -96,8 +96,9 @@ used here solely to demonstrate algorithmic implementation.
 
 ```{r}
 #| label: tbl-comorbidity-methods
-#| tbl-cap: "Comorbidity methods implemented in _medicalcoder_ and sorted by comorbidity family and method in alphabetical order."
+#| tbl-cap: Comorbidity methods implemented in _medicalcoder_ and sorted by comorbidity family and method in alphabetical order.
 #| echo: false
+#| results: asis
 ```
 
 ## Alternative Utilities
@@ -132,6 +133,7 @@ Each file checksum has been verified.
 
 ```{r}
 #| label: tbl-mimicivdata-checksums
+#| tbl-scap: "SHA256 checksums for files in the MIMIC-IV v3.1 data."
 #| tbl-cap: "SHA256 checksums for files in the MIMIC-IV v3.1 data."
 #| echo: false
 #| results: "asis"
@@ -842,10 +844,8 @@ and the severity correctly marked for encounters later in the patient record.
 
 ```{r}
 #| label: tbl-dm-s10009326
-#| tbl-cap: |
-#|   Flagging Diabetes under Charlson comorbidities for MIMIC-IV subject_id
-#|   10009326 using `medicalcoder::comorbidities()` `flag.method = "current"`
-#|   and `flag.method = "cumulative"`.
+#| tbl-cap: 'Example impact of flagging Diabetes using encounter-level data only vs a longitudinal approach.  These are the Charlson comorbidities for MIMIC-IV subject_id 10009326 using `medicalcoder::comorbidities()` with `method = "charlson_quan2011"`, `flag.method = "current"` and `flag.method = "cumulative"`.'
+#| tbl-scap: Example impact of flagging Diabetes using encounter-level data only vs a longitudinal approach.
 #| results: "asis"
 #| echo: false
 ```
@@ -928,8 +928,30 @@ non-technology-dependent until the final encounter.
 #| label: tbl-s10728333-latex
 #| echo: false
 #| results: "asis"
+#| tbl-scap: |
+#|   Comparison of encounter-level and cumulative flagging of PCCC v3 conditions.
 #| tbl-cap: |
-#|   Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to an ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity based on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm, the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
+#|   Comparison of encounter-level and cumulative flagging of PCCC v3 conditions
+#|   for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the
+#|   comorbidity was flagged due to an ICD code that is not
+#|   technology-dependent. Tech denotes flagging of a comorbidity based on the
+#|   presence of at least one technology-dependent ICD code and the presence of
+#|   at least one non-technology-dependent code for another comorbidity.
+#|   DxPrTech denotes flagging due to both technology-dependent and
+#|   non-technology-dependent ICD codes.  Under the Any Tech columns we mark the
+#|   encounters where some tech dependence is identified. For this patient, on
+#|   encounter 1, a technology-dependent ICD code for a respiratory comorbidity
+#|   was found in the subject's record.  Because no non-technology-dependent
+#|   code was observed on encounter 1, under PCCC v3 this subject has no
+#|   comorbidities for encounter 1. This persists for encounters 2 and 3 with
+#|   respect to respiratory and on encounter 3 for miscellaneous as well.  On
+#|   encounter 4 a non-technology-dependent code for a metabolic comorbidity was
+#|   reported.  Under a cumulative flagging paradigm, the miscellaneous and
+#|   respiratory comorbidities are also flagged as the reported codes from
+#|   encounters 3 and 1 have been carried forward respectively.  Under the
+#|   'current' flagging method miscellaneous is never flagged as the
+#|   technology-dependent code never occurs on the same encounter as the
+#|   non-technology-dependent code.
 ```
 
 ## Diabetes - Chronic vs Acute Disease
@@ -1081,8 +1103,11 @@ are reported in @tbl-time-to-compute.
 ```{r}
 #| label: fig-benchmark-summary
 #| echo: false
+#| fig-scap: | 
+#|   Time, in seconds, to flag comorbidities by _medicalcoder_, _comorbidity_,
+#|   _pccc_, and MIMIC-IV Code.
 #| fig-cap: |
-#|   Time (bar height = median, error bars = IQR) in seconds to apply several
+#|   Time (height = median, error bars = IQR) in seconds to apply several
 #|   comorbidity algorithms to the MIMIC-IV dataset. Each method was evaluated
 #|   10 times.  See @tbl-session-info-platform for computational platform
 #|   details.
@@ -1097,6 +1122,9 @@ are reported in @tbl-time-to-compute.
 #| label: tbl-time-to-compute
 #| results: asis
 #| echo: false
+#| tbl-scap: |
+#|   Time, in seconds, to flag comorbidities by _medicalcoder_, _comorbidity_,
+#|   _pccc_, and MIMIC-IV Code.
 #| tbl-cap: |
 #|   Time, in seconds, median and IQR, to flag comorbidities via Charlson,
 #|   Elixhauser, PCCC v2, and PCCC v3 and several different utilities in the
