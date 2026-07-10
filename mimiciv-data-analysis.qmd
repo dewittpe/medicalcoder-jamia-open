@@ -16,6 +16,8 @@ format:
         \usepackage[table]{xcolor}
         \usepackage{threeparttable}
         \usepackage{longtable}
+        \newenvironment{ldescription}{\begin{description}}{\end{description}}
+        \newcommand{\code}[1]{\texttt{#1}}
 
 bibliography: references.bib
 ---
@@ -70,7 +72,7 @@ comorbidity research. MIMIC-IV is widely used for method development,
 validation, and reproducible research in clinical informatics and outcomes
 research.
 
-The MIMIC-IV v3.1 data set can be obtained so long as you meet the requirements
+The MIMIC-IV v3.1 dataset can be obtained so long as you meet the requirements
 set by PhysioNet[^1].
 
 [^1]: https://physionet.org/content/mimiciv/3.1/
@@ -79,10 +81,10 @@ set by PhysioNet[^1].
 
 Within the _medicalcoder_ package are implementations for several variants of
 the Charlson, Elixhauser, and PCCC comorbidity algorithms,
-(@tbl-comorbidity-methods) [@beyrer2021validation;@quan2005;@quan2011;@glasheen2019;@ahrq2025;@feudtner2014pediatric;@feinstein2024pediatric;@dewitt2026pccc;@feinstein2018pccc;@pcccv3sas].
+(@tbl-comorbidity-methods) [@beyrer2021validation;@quan2005;@quan2011;@glasheen2019;@ahrqicd10;@feudtner2014pediatric;@feinstein2024pediatric;@dewitt2026pccc;@feinstein2018pccc;@pcccv3sas].
 
 __NOTE:__
-The MIMIC-IV data consists of only adult patients.
+The MIMIC-IV data consist of only adult patients.
 Although PCCC was designed for pediatric populations, adult MIMIC-IV data are
 used here solely to demonstrate algorithmic implementation.
 
@@ -104,7 +106,7 @@ the R package _pccc_ [@dewitt2026pccc] call `pccc::ccc()`.
 # Prepare MIMIC-IV Data For Analysis
 
 We have stored the path to the MIMIC-IV data as a system variable on our
-machines as `MIMICIVDATA`.  The following code is provide to help readers verify
+machines as `MIMICIVDATA`.  The following code is provided to help readers verify
 that they are using the same version of the MIMIC-IV v3.1 data as used in this
 document.
 
@@ -117,14 +119,14 @@ We only need four of the MIMIC-IV hospital datasets:
 
 We will do some light formatting before using `medicalcoder::comorbidities()` to
 flag comorbidities.  Start by importing the `admissions`, `patients`,
-`diagnoses_icd`, and `procedures_icd`, datasets.
+`diagnoses_icd`, and `procedures_icd` datasets.
 
-@tbl-mimicivdata-checksums gives the sha256 checksums for these files
+@tbl-mimicivdata-checksums gives the SHA256 checksums for these files.
 Each file checksum has been verified.
 
 ```{r}
 #| label: tbl-mimicivdata-checksums
-#| tbl-cap: "SHA256 Check sums for files in the MIMIC-IV v3.1 data."
+#| tbl-cap: "SHA256 checksums for files in the MIMIC-IV v3.1 data."
 #| echo: false
 #| results: "asis"
 ```
@@ -139,7 +141,7 @@ Each file checksum has been verified.
 #| dependson: ["sha256-verify"]
 ```
 
-We will build an additional data set for age (in years).
+We will build an additional dataset for age (in years).
 
 ```{r}
 #| label: build-mimicivdata-ages
@@ -227,7 +229,7 @@ strings if the input is a known ICD code based on version (`icdv = 9` or `icdv =
 ```{r}
 #| label: mimicivdata-is-icd-is-cms
 ```
-There are some codes which appear to not be valid ICD codes.
+There are some codes that appear to not be valid ICD codes.
 ```{r}
 #| label: mimicivdata-n-by-iscms
 ```
@@ -261,6 +263,41 @@ Lastly, we compare and contrast the differences in the flagged comorbidities
 between the methods.
 
 ## `medicalcoder::comorbidities()`
+
+A single function, `medicalcoder::comorbidities()`, is the interface for
+applying any of `r length(medicalcoder:::comorbidities_methods())` comorbidity
+algorithms implemented by _medicalcoder_.
+
+```{r}
+#| label: medicalcoder-comorbidities-help
+#| include: false
+help_file <- utils:::.getHelpFile(help(topic = "comorbidities", package = "medicalcoder", help_type = "text"))
+con <- textConnection("help_string", "w")
+tools::Rd2latex(help_file, out = con)
+close(con)
+```
+**Usage**
+```{r}
+#| label: medicalcoder-comorbidities-help-usage
+#| echo: false
+#| results: "asis"
+help_string[
+  seq(
+    from = which(startsWith(help_string, "\\begin{Usage}")) + 1L,
+    to = which(startsWith(help_string, "\\end{Usage}")) - 1L
+  )] |> cat(sep = "\n")
+```
+**Arguments**
+```{r}
+#| label: medicalcoder-comorbidities-help-arguments
+#| echo: false
+#| results: "asis"
+help_string[
+  seq(
+    from = which(startsWith(help_string, "\\begin{Arguments}")) + 1L,
+    to = which(startsWith(help_string, "\\end{Arguments}")) - 1L
+  )] |> cat(sep = "\n")
+```
 
 ### Charlson Comorbidities
 There are several variants of Charlson like comorbidity methods implemented in
@@ -399,8 +436,8 @@ The following uses _pccc_ version `r packageVersion("pccc")`.
 
 ### `medicalcoder::comorbidities()` vs `comorbidity::comorbidity()`
 
-The first thing to not is that the number of row returned by the two
-implementations are different.
+The first thing to note is that the number of rows returned by the two
+implementations is different.
 ```{r}
 #| label: nrows-medicalcoder-vs-comorbidity
 ```
@@ -427,7 +464,7 @@ The relevant columns to compare are as follows:
 If the columns are identical, we remove them from the `mdcr_v_cmrb` object.
 This test includes the class of the column.  `medicalcoder::comorbidities()`
 returns integer values as does `comorbidity::comorbidity()` save the `score`
-columns which is numberic.
+columns, which are numeric.
 ```{r}
 #| label: column-by-column-mdcr-v-cmrb
 ```
@@ -467,7 +504,7 @@ the `medicalcoder::comorbidities()` call and the MIMIC-IV SQL easier.
 #| label: define-mdcr_v_mmcc
 ```
 
-Another difference in the output form the MIMIC-IV SQL and
+Another difference in the output from the MIMIC-IV SQL and
 `medicalcoder::comorbidities()` is that when an encounter has ICD codes for the
 less severe and more severe version of a condition the MIMIC-IV code reports the
 flag for both whereas `medicalcoder::comorbidities()` only returns the flag for
@@ -572,9 +609,9 @@ to how medicalcoder is implemented.
 
 The differences in any technology dependence and transplant are due to design
 difference between _medicalcoder_ and _pccc_.  _medicalcoder_ uses database
-style joins to map precomputed ICD-codes to conditions.  This allows for a
-simple extension of mapping ICD-codes to both the primary condition and
-subcondition as the latter require only an additional column in a lookup table.
+style joins to map precomputed ICD codes to conditions.  This allows for a
+simple extension of mapping ICD codes to both the primary condition and
+subcondition, as the latter requires only an additional column in a lookup table.
 The _pccc_ uses partial string matching to map ICD codes to conditions for
 each of the primary conditions and only the two subconditions of technology
 dependence and transplant.  When building _medicalcoder_, the lookup table with
@@ -601,18 +638,23 @@ specific ICD codes:
 
 ## Summary of _medicalcoder_ vs Other Implementations
 
-Using the MIMIC-IV data set, we compared encounter-level _medicalcoder_ results
+Using the MIMIC-IV dataset, we compared encounter-level _medicalcoder_ results
 with comparator implementations for shared algorithms and compatible inputs.
 The comparison focuses on whether outputs agree after harmonizing structural
 differences in returned objects and severity conventions.
 
-| _medicalcoder_ method   | Comparator    | Agreement summary                               | Main reason for discordance                |
-|:------------------------|:--------------|:------------------------------------------------|:-------------------------------------------|
-| `charlson_mimicivcode`  | MIMIC-IV Code | Exact match after harmonizing severity handling | Structural output/severity handling        |
-| `charlson_quan2011`     | _comorbidity_ | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
-| `elixhauser_quan2005`   | _comorbidity_ | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
-| `pccc_v2.0`             | _pccc_        | High agreement, with documented differences     | Technology dependence/transplant mapping   |
-: Summary of encounter-level agreement between _medicalcoder_ and comparator implementations using MIMIC-IV v3.1 data. {#tbl-validation-summary}
+```{r}
+#| label: summary-medicalcoder-v-others
+#| include: false
+```
+
+| _medicalcoder_ method   | Comparator    | Discordant Encounters| Agreement summary                               | Main reason for discordance                |
+|:------------------------|:--------------|:--------------------:|:------------------------------------------------|:-------------------------------------------|
+| `charlson_mimicivcode`  | MIMIC-IV Code |  0                   | Exact match after harmonizing severity handling | Structural output/severity handling        |
+| `charlson_quan2011`     | _comorbidity_ |  0                   | Exact match for shared flags                    | Regex/prefix matching vs valid-code lookup |
+| `elixhauser_quan2005`   | _comorbidity_ |  0                   | Exact match for shared flags                    | Extra medicalcoder summary/index fields    |
+| `pccc_v2.0`             | _pccc_        | `r mvp_dl`           | High agreement, with documented differences     | Technology dependence/transplant mapping   |
+: Summary of encounter-level agreement between _medicalcoder_ and comparator implementations using MIMIC-IV v3.1 data, a total of `r mimicDTenc` encounters. {#tbl-validation-summary}
 
 
 # Precomputed vs Regular Expressions
@@ -691,7 +733,7 @@ Under the assumption that all relevant ICD codes are (re)reported on each
 encounter then there is no need to carry-forward comorbidity flags.  However,
 that assumption is rarely valid. _medicalcoder_ provides a utility for
 indefinite carry-forward of a condition. As reported in the primary manuscript
-this includes accounting for conditions which should not be reported on a
+this includes accounting for conditions that should not be reported on a
 specific encounter but are reported on the following encounters. In the
 following we will explore some of the pros and cons of the indefinite
 carry-forward of comorbidities.
@@ -748,10 +790,10 @@ Charlson comorbidities.
 given condition for `flag.method = 'current'` and `flag.method = 'cumulative'`
 for the Charlson condition flagged by `medicalcoder::comorbidities()`.  For most
 conditions the number of encounters flagged is greater when using the cumulative
-flag method compared to the the current flag method.  However, there is a
+flag method compared to the current flag method.  However, there is a
 notable counter example: dm (diabetes without complications) and dmc (diabetes
 with complications).  _medicalcoder_ will carry forward the severity of disease
-an report the more severe version after it has been reported.
+and report the more severe version after it has been reported.
 
 ```{r}
 #| label: define-flagmethod-plot
@@ -761,8 +803,8 @@ an report the more severe version after it has been reported.
 #| label: fig-flagmethod-delta-charlson
 #| fig-scap: Charlson comorbidities by flag.method.
 #| fig-cap: |
-#|   Number of encounters flagged with a Charlson comorbidities based on
-#|   encounter only (`flag.method = "current"`) verses the whole patient history
+#|   Number of encounters flagged with Charlson comorbidities based on
+#|   encounter only (`flag.method = "current"`) versus the whole patient history
 #|   (`flag.method = "cumulative"`).
 #| fig-width: 7
 #| fig-height: 7
@@ -808,8 +850,8 @@ diabetes as Charlson.
 #| label: fig-flagmethod-delta-elixhauser
 #| fig-scap: Elixhauser comorbidities by flag.method.
 #| fig-cap: |
-#|    Number of encounters flagged with a Elixhauser comorbidities based on
-#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    Number of encounters flagged with Elixhauser comorbidities based on
+#|    encounter only (`flag.method = current`) versus the whole patient history
 #|    (`flag.method = "cumulative"`).
 #| fig-width: 7
 #| fig-height: 7
@@ -821,15 +863,15 @@ diabetes as Charlson.
 @fig-flagmethod-delta-pcccv2.0 and @fig-flagmethod-delta-pcccv3.1 illustrate
 the impact of the flagging method when identifying PCCC comorbidities under
 PCCC v2 and PCCC v3 respectively.  @fig-flagmethod-delta-pcccv3.1 is of
-particular interest as the implications of technology-dependent codes in PCCC v3
-are handled have considerable impact on the flagged comorbidities.
+particular interest as the way technology-dependent codes in PCCC v3
+are handled has considerable impact on the flagged comorbidities.
 
 ```{r}
 #| label: fig-flagmethod-delta-pcccv2.0
 #| fig-scap: PCCC v2 comorbidities by flag.method.
 #| fig-cap: |
-#|    Number of encounters flagged with a PCCC v2 comorbidities based on
-#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    Number of encounters flagged with PCCC v2 comorbidities based on
+#|    encounter only (`flag.method = current`) versus the whole patient history
 #|    (`flag.method = "cumulative"`).
 #| fig-width: 7
 #| fig-height: 7
@@ -840,8 +882,8 @@ are handled have considerable impact on the flagged comorbidities.
 #| label: fig-flagmethod-delta-pcccv3.1
 #| fig-scap: PCCC v3 comorbidities by flag.method.
 #| fig-cap: |
-#|    Number of encounters flagged with a PCCC v3 comorbidities based on
-#|    encounter only (`flag.method = current`) verses the whole patient history
+#|    Number of encounters flagged with PCCC v3 comorbidities based on
+#|    encounter only (`flag.method = current`) versus the whole patient history
 #|    (`flag.method = "cumulative"`).
 #| fig-width: 7
 #| fig-height: 9
@@ -898,8 +940,8 @@ complications).
 ```{r}
 #| label: minimum-two-encounters-at-least-one-with-dm
 ```
-How many cumulative flags are on encounters were DM i(with or without
-complications) is flagged on both a preceding and a proceding encounter, or only
+We count cumulative flags on encounters where DM (with or without
+complications) is flagged on both a preceding and a following encounter, or only
 after a preceding encounter.
 ```{r}
 #| label: cumulative-flags-between-and-after-current-flag
@@ -910,10 +952,10 @@ At a subject-level, the
 ```
 
 Longitudinal flagging of a chronic condition could be beneficial, especially in
-the cases were we see the condition flagged on encounters preceding and
-proceding a specific encounter.
+cases where we see the condition flagged on encounters preceding and
+following a specific encounter.
 
-End users are cuationed to understand the specific conditions and comorbidity
+End users are cautioned to understand the specific conditions and comorbidity
 methods being used before applying the indefinite carry-forward.  For example,
 gestational diabetes is part of the comorbidity mappings for the AHRQ Elixhauser
 variants based on ICD-10 codes.  Note that ICD-10 category E08, E09, E10, E11,
@@ -928,13 +970,13 @@ with only non-gestational diabetes.
 ```{r}
 #| label: gestational-and-non-gestational-dm
 ```
-Since the AHRQ variant of Elixhauser comorbidities include both chronic and
-non-chronic versions of diabetes `flag.method = "cumulative"` may results false
+Since the AHRQ variant of Elixhauser comorbidities includes both chronic and
+non-chronic versions of diabetes, `flag.method = "cumulative"` may result in false
 positives of diabetes.
 
 ## Metastatic Tumors
 
-Metastatic tumors could be consider non-chronic conditions as the tumors could
+Metastatic tumors could be considered non-chronic conditions as the tumors could
 be removed via surgery or treated with other therapies.  As such, the flags
 reported via `flag.method = "cumulative"` for malignancy (Charlson and PCCC),
 or solid tumors (Elixhauser) should not be interpreted as "present disease" but
@@ -955,20 +997,20 @@ malignancy and those with an observed malignancy
 ```
 What is notable in the above is that there are
 `r with(subject_history, qwraps2::n_perc(subject_history_of == 1 & subject_observed_mal == 0))`
-patients who have only a personal history of malignancy in the data set.  If the
-cumulative flag was to be considered a "history of" these would patients would
-be considered a false negative.  The, the `flag.method = 'cumulative'` can only
+patients who have only a personal history of malignancy in the dataset.  If the
+cumulative flag was to be considered a "history of", these patients would
+be considered false negatives.  The `flag.method = 'cumulative'` can only
 be interpreted as "current or history of observed disease."
 
 ## AHRQ (2022+) Example - POA
 
 AHRQ Elixhauser for years 2022 and beyond use ICD-10 diagnostic codes and
-require some ICD-codes to be present-on-admission for the comorbidity to be
-flag.  The MIMIC data does not have a present-on-admission flag.  For this
+require some ICD codes to be present-on-admission for the comorbidity to be
+flagged.  The MIMIC data does not have a present-on-admission flag.  For this
 example let's assume that all codes are not POA.
 
 ```{r}
-#| label: ahrq-longitudinial-example
+#| label: ahrq-longitudinal-example
 ```
 
 Let's look at subject_id 19997538.  This subject has ICD code K76.0 reported on
@@ -1032,7 +1074,7 @@ are reported in @tbl-time-to-compute.
 #| echo: false
 #| fig-cap: |
 #|   Time (bar height = median, error bars = IQR) in seconds to apply several
-#|   comorbidity  algorithms to the MIMIC-IV dataset.  Each method was evaluated
+#|   comorbidity algorithms to the MIMIC-IV dataset. Each method was evaluated
 #|   10 times.
 #| fig-width: 7
 #| fig-height: 7
@@ -1044,7 +1086,7 @@ are reported in @tbl-time-to-compute.
 #| tbl-cap: |
 #|   Time, in seconds, median and IQR, to flag comorbidities via Charlson,
 #|   Elixhauser, PCCC v2, and PCCC v3 and several different utilities in the
-#|   MIMIC-IV v3.1 dataset. The flagging method, current or cumulative is
+#|   MIMIC-IV v3.1 dataset. The flagging method, current or cumulative, is
 #|   reported.  Each method was evaluated 10 times.
 ```
 
@@ -1052,14 +1094,14 @@ are reported in @tbl-time-to-compute.
 
 The _medicalcoder_ package provides an S3 summary method for the objects
 returned by `medicalcoder::comorbidities()`.  The summaries differ slightly
-depending of the comorbidity algorithm (`method`). Charlson and Elixhauser
-return lists with multiple summaries and the PCCC return is a data.frame of
+depending on the comorbidity algorithm (`method`). Charlson and Elixhauser
+return lists with multiple summaries and the PCCC method returns a data.frame of
 summaries.
 
 When the `flag.method = 'current'`, the `conditions` element of the summary for
 the Charlson and Elixhauser comorbidities is a data.frame with counts and
 percentages of the distinct `id.vars` with a given comorbidity, and counts of
-comorbidities.  For PCCC v2 and v3, the return is only this data.frame.   When
+comorbidities.  For PCCC v2 and v3, the return is only this data.frame.  When
 the flag method is cumulative, a warning is given stating that the summary may
 not be meaningful as it is an encounter level summary.
 
@@ -1083,7 +1125,7 @@ summary tables using tools such as _knitr_
 
 # Session Info
 
-@tbl-session-info-platform and @tbl-session-info-packages reports details on the
+@tbl-session-info-platform and @tbl-session-info-packages report details on the
 machine, R, and the R packages used to produce this document.
 
 ```{r}

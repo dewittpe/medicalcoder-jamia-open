@@ -34,6 +34,14 @@ who10 <-
   with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "who"),
     paste(min(known_start), max(known_end), sep = " - "))
 
+ihacpa10 <-
+  with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "ihacpa"),
+    paste(min(known_start), max(known_end), sep = " - "))
+
+socialstyrelsen10 <-
+  with(subset(medicalcoder::get_icd_codes(), icdv == 10 & src == "socialstyrelsen"),
+    paste(min(known_start), max(known_end), sep = " - "))
+
 ## ---- tbl-comorbidity-methods ----
 cm <- data.table::fread(text = "
 Comorbidity Method        | Notes
@@ -54,7 +62,7 @@ elixhauser_ahrq2026       | ICD-10 codes from AHRQ for fiscal year 2026
 elixhauser_ahrq_icd10     | Any ICD-10 code from all elixhauser_ahrqYYYY
 pccc_v2.0                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with pccc::ccc()
 pccc_v2.1                 | Extended set of pccc_v2.0 codes based on pccc::ccc() and supplements to Feudtner et al. (2014)
-pccc_v3.0                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with SAS code from Children's Hospital Assoication
+pccc_v3.0                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with SAS code from Children's Hospital Association
 pccc_v3.1                 | Extended set of pccc_v3.0 codes based on the supplements to Feinstein et al. (2024)"
 )
 cm <- cm[, lapply(.SD, gsub, pattern = "_", replacement = "\\\\_")]
@@ -931,10 +939,22 @@ for (i in seq_len(nrow(mvp_columns))) {
 
 ## ---- structre-remaining-mdcr-v-pccc ----
 str(mdcr_v_pccc)
+mdcr_v_pccc[
+  ,
+  .(discordant_n = sum(any_transplant != transplant | any_tech_dep != tech_dep), .N)
+  ][
+  ,
+  .(discordant_n, discordant_p = discordant_n / N)
+  ]
 
 ## ---- any-tech-dep-and-transplant ----
 mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_tech_dep, pccc = tech_dep)]
 mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_transplant, pccc = transplant)]
+
+## ---- summary-medicalcoder-v-others ----
+mimicDTenc <- data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id"))
+mvp_dl <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "latex") ]
+mvp_dm <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "markdown") ]
 
 ## ---- medicalcoder-charlson-current ----
 medicalcoder_charlson_current <-
@@ -1239,13 +1259,13 @@ kableExtra::kbl(
   align = rep("c", ncol(DT1)),
   escape = FALSE,
   caption.short = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333.",
-  caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to a ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity base on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
+  caption = "Flagging of comorbidities under PCCC v3 for MIMIC-IV subject 10728333. Cells marked with DxPr denote that the comorbidity was flagged due to an ICD code that is not technology-dependent.  Tech denotes flagging of a comorbidity based on the presence of at least one technology-dependent ICD code and the presence of at least one non-technology-dependent code for another comorbidity. DxPrTech denotes flagging due to both technology-dependent and non-technology-dependent ICD codes.  Under the Any Tech columns we mark the encounters where some tech dependence is identified. For this patient, on encounter 1, a technology-dependent ICD code for a respiratory comorbidity was found in the subject's record.  Because no non-technology-dependent code was observed on encounter 1, under PCCC v3 this subject has no comorbidities for encounter 1.  This persists for encounters 2 and 3 with respect to respiratory and on encounter 3 for miscellaneous as well.  On encounter 4 a non-technology-dependent code for a metabolic comorbidity was reported.  Under a cumulative flagging paradigm, the miscellaneous and respiratory comorbidities are also flagged as the reported codes from encounters 3 and 1 have been carried forward respectively.  Under the 'current' flagging method miscellaneous is never flagged as the technology-dependent code never occurs on the same encounter as the non-technology-dependent code."
   ) |>
 kableExtra::kable_styling(
   latex_options = c("striped", "scale_down", "HOLD_position")
 ) |>
 kableExtra::add_header_above(
-  header = c("", "Metabolic" = 2, "Miscellaneous" = 2, "Respiratory" = 2, "Any Tech" = 2, "Number of Comorbiditys" = 2)
+  header = c("", "Metabolic" = 2, "Miscellaneous" = 2, "Respiratory" = 2, "Any Tech" = 2, "Number of Comorbidities" = 2)
 ) |>
 kableExtra::add_footnote(
   label = c("A technology-dependent code was reported on this encounter.  Since no non-technology-dependent was reported no comorbidities are flagged.",
@@ -1453,7 +1473,7 @@ subject_history[
     .(subjects = .N), keyby = .(subject_history_of, subject_observed_mal)
   ]
 
-## ---- ahrq-longitudinial-example ----
+## ---- ahrq-longitudinal-example ----
 common_args <-
   list(
     data = mimicivDT,

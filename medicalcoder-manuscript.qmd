@@ -106,7 +106,7 @@ Email: [peter.dewitt@cuanschutz.edu](mailto:peter.dewitt@cuanschutz.edu)
 
 [**Short running title**]{.underline}: _medicalcoder_: R package for ICD codes and Comorbidities with longitudinal data
 
-<!-- allowed 5; recomend https://www.ncbi.nlm.nih.gov/mesh/ -->
+<!-- allowed 5; recommend https://www.ncbi.nlm.nih.gov/mesh/ -->
 [**Keywords:**]{.underline} Comorbidity, International Classification of
 Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
@@ -114,7 +114,7 @@ Diseases (ICD), Software, Longitudinal Studies, Pediatrics
 
 # Abstract {.unnumbered}
 
-Word count: 148 / 150
+Word count: 150 / 150
 
 **Objectives:**
 Comorbidity algorithms derived from ICD codes are central to risk adjustment and
@@ -124,7 +124,7 @@ longitudinal nature of disease. We developed _medicalcoder_ to address these
 limitations.
 
 **Materials and Methods:**
-_medicalcoder_ is a R package with an internal ICD database and unified
+_medicalcoder_ is an R package with an internal ICD database and unified
 interface for applying variants of the Charlson, Elixhauser, and Pediatric
 Complex Chronic Conditions algorithms. It supports full and compact ICD codes,
 mixed ICD versions, present-on-admission and primary diagnosis indicators, and
@@ -132,7 +132,7 @@ encounter-level and cumulative longitudinal flagging.
 
 **Results:**
 The _medicalcoder_ package requires only R ≥ 3.5.0; no additional packages,
-internet access, or external data. Outputs are consistent with published
+internet access, or external data are required. Outputs are consistent with published
 reference implementations. Longitudinal flagging identifies additional
 comorbidity flags under a carry-forward assumption while accounting for
 present-on-admission or technology-dependent logic.
@@ -228,9 +228,12 @@ _medicalcoder_ was designed to be fully self-contained and deployable in
 restricted computing environments with limited or no internet access and tightly
 controlled system settings and software. No external namespaces are imported; R
 &geq; 3.5.0 is the only required dependency, ensuring compatibility with modern
-R serialization formats. Several packages are suggested for enhanced performance
-(data.table [@r-data.table] and dplyr [@r-dplyr]) and for testing and
-documentation but are not required for installation or use.
+R serialization formats. This dependency-free claim refers to installation and
+routine use of the core _medicalcoder_ package; the validation, examples,
+benchmarking, documentation, and manuscript-generation workflows use suggested R
+packages, MIMIC-IV data, Quarto/Pandoc, and external comparator implementations
+as described below and in the supplement.
+
 
 ```{r}
 #| label: icd-src-years
@@ -243,10 +246,11 @@ Control and Prevention (CDC; fiscal years `r cdc9`) and ICD-9-CM and ICD-9-PCS
 codes from the Centers for Medicare and Medicaid Services (CMS; fiscal years `r
 cms9`). ICD-10 diagnostic codes from the CDC (calendar years `r cdc10`) and the
 World Health Organization (WHO; calendar years `r who10`) are included, along
-with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`),
-ICD-10 Australian Modification data from the Independent Health and Aged Care
-Pricing Authority, and ICD-10-SE data from Socialstyrelsen. The
-internal database will be extended as additional code sets are published.
+with ICD-10-CM and ICD-10-PCS codes from CMS (fiscal years `r cms10`), ICD-10
+Australian Modification data from the Independent Health and Aged Care Pricing
+Authority (fiscal years `ihacpa10`), and ICD-10-SE data from Socialstyrelsen
+(calendar years `r socialstyrelsen10`). The internal database will be extended
+as additional code sets are published.
 
 Charlson variants include Deyo (as denoted in [@quan2005]), Quan (2005; 2011)
 [@quan2005;@quan2011], CDMF (2019) [@glasheen2019], Ludvigsson (2021)
@@ -358,6 +362,8 @@ omitted, the entire dataset is treated as a single encounter. For longitudinal
 flagging (`flag.method = "cumulative"`), `id.vars` must include at least two
 variables: the leading variables define the patient and the final variable
 defines within-patient order for carrying ICD codes forward across encounters.
+Additional details on the function arguments are provided in Section 5.1 of the
+Supplement.
 
 The ordering variable may be a date/time (e.g., admission time) or a numeric
 sequence (e.g., encounter number). In large datasets, using an integer sequence
@@ -419,6 +425,9 @@ The PCCC v3 and AHRQ Elixhauser algorithms, 2022-2026, are more complex. PCCC
 v3 conditions depend on whether technology-dependent codes co-occur (or
 eventually co-occur) with non–technology-dependent codes (Table 2). Elixhauser
 from AHRQ post 2022 account for POA status of ICD codes (example in Supplement.)
+For AHRQ Elixhauser variants, POA-required conditions are flagged when POA is
+present or the ICD code is POA-exempt; missing POA values do not satisfy
+POA-required logic unless a scalar POA assumption is supplied.
 Using `flag.method = "cumulative"` ensures the algorithm’s longitudinal logic is
 applied consistently.
 
@@ -456,15 +465,11 @@ non-technology-dependent code.
 #| results: asis
 ```
 
-Encounter-level validation showed agreement between _medicalcoder_ and
-comparator implementations when the same published algorithm and valid MIMIC-IV
-ICD-coded inputs were used. Charlson flags matched the MIMIC-IV Code
-implementation after harmonizing output conventions for severity handling, and
-Elixhauser flags matched _comorbidity_ for shared condition indicators. PCCC
-differences were limited to documented technology-dependence and
-transplant-category handling differences described in the supplement.
-Agreement summaries and discordance explanations are provided in Supplementary
-Table 3.
+Across encounter-level comparisons with MIMIC-IV Code and _comorbidity_,
+_medicalcoder_ showed 100% agreement for shared condition flags after
+harmonizing output conventions; PCCC v2.0 discordance with _pccc_ was limited to
+documented technology-dependence and transplant-category differences
+(Supplementary Table 3).
 
 Additionally, the comparators all use some form of partial string matching in
 their implementations for mapping ICD codes to conditions.  In contrast,
@@ -558,6 +563,19 @@ reduces reliance on ad hoc code lists and external reference tables when
 defining cohorts or filtering diagnosis and procedure codes in large clinical
 datasets.
 
+The archived R package _icd_ is relevant prior work for ICD utilities and
+comorbidity mapping in R [@r-icd]. _medicalcoder_ was designed with a different
+implementation emphasis: a current self-contained ICD database requiring no
+internet access at runtime, a single `medicalcoder::comorbidities()` interface
+for the implemented Charlson, Elixhauser, and PCCC variants, explicit row-level
+metadata for ICD version and diagnosis/procedure type, POA-aware AHRQ Elixhauser
+variants, and cumulative longitudinal flagging.
+
+The magnitude and interpretation of cumulative flagging may differ in pediatric,
+outpatient, claims, non-ICU, and non-U.S. datasets because coding density,
+encounter spacing, POA availability, and condition persistence differ across
+settings.
+
 Extensive testing against published SAS, SQL, and R reference implementations
 demonstrates that _medicalcoder_ produces results consistent with established
 encounter-level algorithms while offering additional flexibility. Automated
@@ -588,6 +606,9 @@ The _medicalcoder_ R package is available from the Comprehensive R Archive Netwo
 (CRAN) at https://cran.r-project.org/package=medicalcoder. Developmental
 versions, additional testing suites, benchmarking, and examples are on GitHub at
 https://github.com/dewittpe/medicalcoder/.
+For reproducibility, analyses should report and, when possible, pin the
+_medicalcoder_ package version because the internal ICD database and
+comorbidity mappings are versioned with the package.
 
 The MIMIC-IV v3.1 data is available from PhysioNet at
 https://physionet.org/content/mimiciv/3.1/.
