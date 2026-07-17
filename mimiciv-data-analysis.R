@@ -44,28 +44,28 @@ socialstyrelsen10 <-
 
 ## ---- tbl-comorbidity-methods ----
 cm <- data.table::fread(text = "
-Comorbidity Method        | Notes
-charlson_beyrer2021       | U.S. extension of Quan et al. (2005) by Beyrer et al. (2021)
-charlson_cdmf2019         | ICD-9 and ICD-10 defined in [@glasheen2019]
-charlson_deyo1992         | ICD-9 codes defined in Table 1 of Quan et al. (2005)
-charlson_ludvigsson2021   | ICD-10-SE variant Ludvigsson et al. (2021, 2023)
-charlson_mimicivcode      | MIMIC-IV Charlson SQL from [`mimic-code`](https://github.com/MIT-LCP/mimic-code)
-charlson_quan2005         | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011)
-charlson_quan2011         | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011)
-charlson_sundararajan2004 | ICD-10-AM codes variant Sundararajan et al. (2004)
-elixhauser_elixhauser1988 | ICD-9 codes defined in Table 2 of Quan et al. (2005)
-elixhauser_ahrq_web       | ICD-9 codes defined in Table 2 of Quan et al. (2005)
-elixhauser_quan2005       | ICD-9 and ICD-10 defined in Table 2 of Quan et al. (2005)
-elixhauser_ahrq2022       | ICD-10 codes from AHRQ for fiscal year 2022
-elixhauser_ahrq2023       | ICD-10 codes from AHRQ for fiscal year 2023
-elixhauser_ahrq2024       | ICD-10 codes from AHRQ for fiscal year 2024
-elixhauser_ahrq2025       | ICD-10 codes from AHRQ for fiscal year 2025
-elixhauser_ahrq2026       | ICD-10 codes from AHRQ for fiscal year 2026
-elixhauser_ahrq_icd10     | Any ICD-10 code from all elixhauser_ahrqYYYY
-pccc_v2.0                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with pccc::ccc()
-pccc_v2.1                 | Extended set of pccc_v2.0 codes based on pccc::ccc() and supplements to Feudtner et al. (2014)
-pccc_v3.0                 | ICD-9 and ICD-10 diagnostic and procedure codes consistent with SAS code from Children's Hospital Association
-pccc_v3.1                 | Extended set of pccc_v3.0 codes based on the supplements to Feinstein et al. (2024)"
+Comorbidity Method         | Notes
+charlson_beyrer2021        | U.S. extension of Quan et al. (2005) by Beyrer et al. (2021)
+charlson_cdmf2019          | ICD-9 and ICD-10 defined in Glasheen et al. (2019)
+charlson_deyo1992          | ICD-9 codes defined in Table 1 of Quan et al. (2005)
+charlson_ludvigsson2021    | ICD-10-SE variant Ludvigsson et al. (2021, 2023)
+charlson_mimicivcode       | MIMIC-IV Charlson SQL from MIMIC-IV Code, Johnson et al. (2018)
+charlson_quan2005          | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011) 'Charlson Weight'
+charlson_quan2011          | ICD-9 and ICD-10 defined in Table 1 of Quan et al. (2005); index scoring as reported in Table 2 of Quan et al. (2011) 'Updated Weight'
+charlson_sundararajan2004  | ICD-10-AM codes variant Sundararajan et al. (2004)
+elixhauser_elixhauser1988* | ICD-9 codes defined in Table 2 of Quan et al. (2005)
+elixhauser_ahrq_web        | ICD-9 codes defined in Table 2 of Quan et al. (2005)
+elixhauser_quan2005        | ICD-9 and ICD-10 defined in Table 2 of Quan et al. (2005)
+elixhauser_ahrq2022        | ICD-10 codes from AHRQ for fiscal year 2022
+elixhauser_ahrq2023        | ICD-10 codes from AHRQ for fiscal year 2023
+elixhauser_ahrq2024        | ICD-10 codes from AHRQ for fiscal year 2024
+elixhauser_ahrq2025        | ICD-10 codes from AHRQ for fiscal year 2025
+elixhauser_ahrq2026        | ICD-10 codes from AHRQ for fiscal year 2026
+elixhauser_ahrq_icd10      | Any ICD-10 code from all elixhauser_ahrqYYYY
+pccc_v2.0                  | ICD-9 and ICD-10 diagnostic and procedure codes consistent with pccc::ccc()
+pccc_v2.1                  | Extended set of pccc_v2.0 codes based on pccc::ccc() and supplements to Feudtner et al. (2014)
+pccc_v3.0                  | ICD-9 and ICD-10 diagnostic and procedure codes consistent with SAS code from Children's Hospital Association
+pccc_v3.1                  | Extended set of pccc_v3.0 codes based on the supplements to Feinstein et al. (2024)"
 )
 cm <- cm[, lapply(.SD, gsub, pattern = "_", replacement = "\\\\_")]
 
@@ -80,7 +80,8 @@ kableExtra::kable_styling(
 ) |>
 kableExtra::pack_rows(group_label = "Charlson",   start_row =  1, end_row =  8) |>
 kableExtra::pack_rows(group_label = "Elixhauser", start_row =  9, end_row = 17) |>
-kableExtra::pack_rows(group_label = "PCCC",       start_row = 18, end_row = 21)
+kableExtra::pack_rows(group_label = "PCCC",       start_row = 18, end_row = 21) |>
+kableExtra::add_footnote(notation = "symbol", label = "Elixhauser's paper was published in 1998, not 1988.  A correction to the name will be made in a future release of the \\textit{medicalcoder} package. \\url{https://github.com/dewittpe/medicalcoder/issues/50}", escape = FALSE)
 
 ## ---- tbl-mimicivdata-checksums ----
 data.table::fread(
@@ -986,9 +987,17 @@ mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_tech_dep, pccc = tech_dep)]
 mdcr_v_pccc[, .N, keyby = .(medicalcoder = any_transplant, pccc = transplant)]
 
 ## ---- summary-medicalcoder-v-others ----
-mimicDTenc <- qwraps2::frmt(data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id")))
-mvp_dl <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "latex") ]
-mvp_dm <- mdcr_v_pccc[, qwraps2::n_perc(any_transplant != transplant | any_tech_dep != tech_dep, markup = "markdown") ]
+mimicDTenc <- data.table::uniqueN(mimicivDT, by = c("subject_id", "hadm_id"))
+mvp_dm <-
+  mdcr_v_pccc[
+    ,
+    .(n = sum(any_transplant != transplant | any_tech_dep != tech_dep))
+  ][
+    ,
+    paste0(qwraps2::frmt(as.integer(n)), " (", qwraps2::frmt(n/mimicDTenc*100, digits = 2), "\\%)")
+  ]
+mvp_dl <- sub("%", "\\%", mvp_dm)
+mimicDTenc <- qwraps2::frmt(mimicDTenc)
 
 ## ---- medicalcoder-charlson-current ----
 medicalcoder_charlson_current <-

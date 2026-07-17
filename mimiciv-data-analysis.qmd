@@ -284,7 +284,7 @@ con <- textConnection("help_string", "w")
 tools::Rd2latex(help_file, out = con)
 close(con)
 ```
-**Usage:**
+**Usage:** (Verbatim from _medicalcoder_ package documentation)
 ```{r}
 #| label: medicalcoder-comorbidities-help-usage
 #| echo: false
@@ -295,7 +295,7 @@ help_string[
     to = which(startsWith(help_string, "\\end{Usage}")) - 1L
   )] |> cat(sep = "\n")
 ```
-**Arguments:**
+**Arguments:** (Verbatim from _medicalcoder_ package documentation)
 ```{r}
 #| label: medicalcoder-comorbidities-help-arguments
 #| echo: false
@@ -590,7 +590,7 @@ columns unique to the return from `medicalcoder::comorbidities()`:
 
 ## PCCC
 
-### `medicalcoder::comorbidities()` vs `pccc:::ccc()`
+### `medicalcoder::comorbidities()` vs `pccc::ccc()`
 As we have seen in other cases, the absence of ICD codes for a `hadm_id` results
 in the omission of the record from the return from `pccc::ccc()`.
 ```{r}
@@ -631,7 +631,7 @@ condition and subconditions was extended to match the publication documentation.
 #| label: any-tech-dep-and-transplant
 ```
 
-Several GitHub issues have be created for _pccc_ to correct these issues for
+Several GitHub issues have been created for _pccc_ to correct these issues for
 specific ICD codes:
 
 * [ICD-9 349.1](https://github.com/CUD2V/pccc/issues/45)
@@ -669,9 +669,9 @@ differences in returned objects and severity conventions.
 
 # Precomputed vs Regular Expressions
 
-The default method in _medicalcoder_ for mapping ICD codes to comorbidities is
-to use a precomputed sets of known ICD codes and use database style joins to and
-lookup tables.   _comorbidity_, and many other utilities, use regular
+By default, _medicalcoder_ maps ICD codes to comorbidities using precomputed
+valid-code sets and database-style joins to lookup tables.
+_comorbidity_, and many other utilities, use regular
 expressions or partial string matching to make the maps. This can lead to
 problems.  For example, the strings "C189N" and "C189NOTACODE" are not a valid
 ICD code, and will be flagged as a cancer comorbidity via
@@ -719,7 +719,7 @@ implemented.
 #| label: precomputed-v-regex-with-regex
 ```
 
-The current regular expressions are avaiable to end users via
+The current regular expressions are available to end users via
 ```{r}
 #| label: precomputed-v-regex-patterns
 ```
@@ -735,6 +735,9 @@ used with care.
 #| label: precomputed-v-regex-canc-part2
 ```
 
+As of _medicalcoder_ `r packageVersion("medicalcoder")` several Charlson methods
+have exposed regular expressions for mapping ICD codes to conditions.  Future
+releases of _medicalcoder_ will extend this to Elixhauser and PCCC methods.
 
 # Longitudinal Flagging
 
@@ -1103,7 +1106,7 @@ are reported in @tbl-time-to-compute.
 ```{r}
 #| label: fig-benchmark-summary
 #| echo: false
-#| fig-scap: | 
+#| fig-scap: |
 #|   Time, in seconds, to flag comorbidities by _medicalcoder_, _comorbidity_,
 #|   _pccc_, and MIMIC-IV Code.
 #| fig-cap: |
