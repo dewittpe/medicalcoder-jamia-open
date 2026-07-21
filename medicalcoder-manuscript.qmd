@@ -520,6 +520,8 @@ flagged for individual encounters or longitudinally within a patient record.
 
 [**Competing Interests Statement:**]{.underline} None.
 
+[**Funding:**]{.underline} None.
+
 [**Data Availability Statement:**]{.underline}
 The _medicalcoder_ R package is available from the Comprehensive R Archive Network
 (CRAN) at https://cran.r-project.org/package=medicalcoder. Developmental
@@ -538,8 +540,8 @@ https://github.com/dewittpe/medicalcoder-jamia-open/.
 [**Contributorship Statement:**]{.underline} PED designed and developed the
 _medicalcoder_ R package and drafted the manuscript. SR provided critical code
 review and testing.  JAF, SR, MR, and TDB all contributed to the conception,
-design, and interpretation and provided important feedback. TDB provided
-funding. All authors critically reviewed the manuscript for important
+design, and interpretation and provided important feedback.
+All authors critically reviewed the manuscript for important
 intellectual content and approved of the final version of the manuscript.
 
 [**Acknowledgments:**]{.underline} We thank Vincent Rubinetti for his assistance
