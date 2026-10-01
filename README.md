@@ -1,7 +1,13 @@
 # medicalcoder JAMIA Open Manuscript
 
 This repo contains all the source code needed to reproduce the application note
-submitted to JAMIA Open.
+published in JAMIA Open.
+
+> Peter E DeWitt, Seth Russell, James A Feinstein, Margaret N Rebull, Tellen D
+> Bennett, medicalcoder: a unified and longitudinally aware framework for
+> International Classification of Diseases code-based comorbidity assessment in
+> R, JAMIA Open, Volume 9, Issue 5, October 2026, ooag182,
+> https://doi.org/10.1093/jamiaopen/ooag182
 
 ## JAMIA Open Submission
 
